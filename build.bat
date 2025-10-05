@@ -10,7 +10,7 @@ if not exist "dist" mkdir dist
 REM Compiler flags and source files
 set CFLAGS=-O3 -flto -I./Falcon-impl-round3 -DFALCON_FPEMU=0 -DFALCON_FPNATIVE=1
 
-set EMFLAGS=-s WASM=1 -s ALLOW_MEMORY_GROWTH=1 -s "EXPORTED_RUNTIME_METHODS=['cwrap','ccall','getValue','setValue']" -s MODULARIZE=1 -s EXPORT_ES6=1 -s EXPORT_NAME='createFalconModule' -s TOTAL_MEMORY=16777216 -s STACK_SIZE=1048576 --no-entry
+set EMFLAGS=-s WASM=1 -s ALLOW_MEMORY_GROWTH=1 -s "EXPORTED_RUNTIME_METHODS=['cwrap','ccall','getValue','setValue']" -s MODULARIZE=1 -s EXPORT_ES6=1 -s "EXPORT_NAME=createFalconModule" -s TOTAL_MEMORY=16777216 -s STACK_SIZE=1048576 --no-entry
 
 set FALCON_SOURCES=Falcon-impl-round3/codec.c Falcon-impl-round3/common.c Falcon-impl-round3/falcon.c Falcon-impl-round3/fft.c Falcon-impl-round3/fpr.c Falcon-impl-round3/keygen.c Falcon-impl-round3/rng.c Falcon-impl-round3/shake.c Falcon-impl-round3/sign.c Falcon-impl-round3/vrfy.c
 

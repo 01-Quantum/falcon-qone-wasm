@@ -21,13 +21,39 @@ npm install falcon-qone-wasm
 
 ## Building from Source
 
-### Prerequisites
+### Option 1: Build with Docker (Recommended)
 
+No need to install Emscripten! Just use Docker:
+
+```bash
+# Clone the repository
+git clone <repository-url>
+cd falcon-qone-wasm
+
+# Install Node dependencies
+npm install
+
+# Build WASM with Docker (one command!)
+docker-compose up falcon-wasm-builder
+
+# Or use Make
+make build
+
+# Run tests
+npm test
+```
+
+See [BUILD_WITH_DOCKER.md](BUILD_WITH_DOCKER.md) for detailed Docker instructions.
+
+### Option 2: Build Locally
+
+If you prefer to install Emscripten locally:
+
+**Prerequisites:**
 - **Emscripten SDK** (emcc) for compiling to WebAssembly
 - Node.js 16+
-- TypeScript
 
-### Build Steps
+**Build Steps:**
 
 ```bash
 # Clone the repository
@@ -41,20 +67,16 @@ npm install
 npm run build:wasm      # Linux/Mac
 npm run build:wasm:win  # Windows
 
-# Build TypeScript
-npm run build:ts
-
-# Or build everything
-npm run build
-
 # Run tests
 npm test
 ```
 
+See [BUILDING.md](BUILDING.md) for detailed local build instructions.
+
 ## Quick Start
 
-```typescript
-import { Falcon512 } from 'falcon-qone-wasm';
+```javascript
+import { Falcon512 } from 'falcon-qone-wasm/src/falcon.js';
 import createFalconModule from 'falcon-qone-wasm/dist/falcon.js';
 
 async function example() {

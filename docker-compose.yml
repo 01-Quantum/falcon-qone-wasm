@@ -1,0 +1,50 @@
+version: '3.8'
+
+services:
+  # Service for building Falcon-512 WebAssembly module
+  falcon-wasm-builder:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: falcon-wasm-builder
+    volumes:
+      # Mount source files (read-only for safety)
+      - ./Falcon-impl-round3:/workspace/Falcon-impl-round3:ro
+      - ./src:/workspace/src:ro
+      - ./build.sh:/workspace/build.sh:ro
+      
+      # Mount output directory (read-write to save build artifacts)
+      - ./dist:/workspace/dist:rw
+    
+    # Build command (can be overridden)
+    command: ./build.sh
+    
+    # Resource limits (optional, adjust as needed)
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+    
+    # Environment variables
+    environment:
+      - NODE_ENV=production
+    
+    # Working directory
+    working_dir: /workspace
+
+  # Optional: Interactive shell for debugging
+  falcon-wasm-shell:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: falcon-wasm-shell
+    volumes:
+      - ./Falcon-impl-round3:/workspace/Falcon-impl-round3:ro
+      - ./src:/workspace/src:ro
+      - ./build.sh:/workspace/build.sh:ro
+      - ./dist:/workspace/dist:rw
+    command: bash
+    stdin_open: true
+    tty: true
+    working_dir: /workspace

@@ -1,0 +1,35 @@
+# Git attributes for Falcon-512 WASM project
+
+# Ensure shell scripts always use LF line endings (even on Windows)
+*.sh text eol=lf
+
+# Ensure batch files use CRLF on Windows
+*.bat text eol=crlf
+
+# Default behavior for all text files
+* text=auto
+
+# Source files
+*.c text
+*.h text
+*.ts text
+*.js text
+*.json text
+*.md text
+*.txt text
+*.yml text
+*.yaml text
+
+# Docker files
+Dockerfile text
+docker-compose.yml text eol=lf
+.dockerignore text
+
+# Binary files
+*.wasm binary
+*.o binary
+*.a binary
+*.so binary
+*.dylib binary
+*.dll binary
+*.exe binary

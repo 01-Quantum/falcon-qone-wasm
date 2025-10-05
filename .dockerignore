@@ -1,0 +1,49 @@
+# Don't copy these to Docker image
+
+# Node modules (not needed for WASM build)
+node_modules/
+
+# Build outputs (will be generated)
+dist/
+
+# Git
+.git/
+.gitignore
+
+# Documentation (not needed for build)
+*.md
+!README.md
+
+# Tests (not needed for WASM build)
+tests/
+
+# Examples (not needed for WASM build)
+examples/
+
+# Configuration files (not needed for build)
+package.json
+package-lock.json
+tsconfig.json
+jest.config.js
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Other build artifacts
+*.o
+*.a
+test_falcon
+speed
+Falcon-impl-round3/test_falcon
+Falcon-impl-round3/speed
+Falcon-impl-round3/libfalcon.a

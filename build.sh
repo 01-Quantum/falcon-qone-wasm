@@ -38,15 +38,15 @@ CFLAGS=(
 
 # Emscripten-specific flags
 EMFLAGS=(
-    "-s WASM=1"                                    # Generate WASM
-    "-s ALLOW_MEMORY_GROWTH=1"                     # Allow heap growth
-    "-s EXPORTED_RUNTIME_METHODS=['cwrap','ccall','getValue','setValue']"  # Export runtime helpers
-    "-s MODULARIZE=1"                              # Export as ES6 module
-    "-s EXPORT_ES6=1"                              # ES6 module format
-    "-s EXPORT_NAME='createFalconModule'"          # Module factory name
-    "-s TOTAL_MEMORY=16777216"                     # Initial memory: 16MB
-    "-s STACK_SIZE=1048576"                        # Stack size: 1MB
-    "--no-entry"                                   # No main() function
+    -s WASM=1                                      # Generate WASM
+    -s ALLOW_MEMORY_GROWTH=1                       # Allow heap growth
+    -s "EXPORTED_RUNTIME_METHODS=['cwrap','ccall','getValue','setValue']"  # Export runtime helpers
+    -s MODULARIZE=1                                # Export as ES6 module
+    -s EXPORT_ES6=1                                # ES6 module format
+    -s "EXPORT_NAME=createFalconModule"            # Module factory name
+    -s TOTAL_MEMORY=16777216                       # Initial memory: 16MB
+    -s STACK_SIZE=1048576                          # Stack size: 1MB
+    --no-entry                                     # No main() function
 )
 
 # Build command

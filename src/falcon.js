@@ -1,71 +1,8 @@
 /**
- * Falcon-512 WebAssembly TypeScript API
+ * Falcon-512 WebAssembly JavaScript API
  * 
- * Provides a clean TypeScript interface for Falcon-512 post-quantum signatures
+ * Provides a clean interface for Falcon-512 post-quantum signatures
  */
-
-// Type definitions
-export interface FalconKeypair {
-  publicKey: Uint8Array;   // 897 bytes
-  privateKey: Uint8Array;  // 1281 bytes
-}
-
-export interface FalconSignatureCoefficients {
-  s1: Int16Array;  // 512 elements
-  s2: Int16Array;  // 512 elements
-}
-
-// WebAssembly module interface
-interface FalconWasmModule extends EmscriptenModule {
-  _wasm_malloc(size: number): number;
-  _wasm_free(ptr: number): void;
-  
-  _falcon512_keygen_from_seed(
-    seed: number, seed_len: number,
-    privkey: number, pubkey: number
-  ): number;
-  
-  _falcon512_sign(
-    message: number, message_len: number,
-    privkey: number,
-    rng_seed: number, rng_seed_len: number,
-    sig: number, sig_len_ptr: number
-  ): number;
-  
-  _falcon512_verify(
-    message: number, message_len: number,
-    signature: number, signature_len: number,
-    pubkey: number
-  ): number;
-  
-  _falcon512_hash_to_point(
-    message: number, message_len: number,
-    point_out: number
-  ): number;
-  
-  _falcon512_get_pubkey_coefficients(
-    pubkey: number, coeffs_out: number
-  ): number;
-  
-  _falcon512_get_signature_coefficients(
-    signature: number, signature_len: number,
-    s1_out: number, s2_out: number
-  ): number;
-  
-  _falcon512_get_privkey_size(): number;
-  _falcon512_get_pubkey_size(): number;
-  _falcon512_get_sig_max_size(): number;
-  _falcon512_get_n(): number;
-  
-  HEAP8: Int8Array;
-  HEAP16: Int16Array;
-  HEAPU8: Uint8Array;
-  HEAPU16: Uint16Array;
-}
-
-interface EmscriptenModule {
-  ready: Promise<void>;
-}
 
 // Constants
 const FALCON512_N = 512;
@@ -77,26 +14,43 @@ const FALCON512_SIG_MAX_SIZE = 752;
  * Falcon-512 WebAssembly API
  */
 export class Falcon512 {
-  private module: FalconWasmModule | null = null;
-  private initialized: boolean = false;
+  constructor() {
+    this.module = null;
+    this.initialized = false;
+  }
 
   /**
    * Initialize the Falcon-512 WASM module
+   * @param {Function} moduleFactory - Emscripten module factory (returns a promise)
    */
-  async init(moduleFactory: () => Promise<FalconWasmModule>): Promise<void> {
+  async init(moduleFactory) {
     if (this.initialized) {
       return;
     }
     
-    this.module = await moduleFactory();
-    await this.module.ready;
+    // Emscripten moduleFactory can be:
+    // 1. A function that returns a promise
+    // 2. Already a promise
+    // Handle both cases
+    if (typeof moduleFactory === 'function') {
+      this.module = await moduleFactory();
+    } else {
+      this.module = await moduleFactory;
+    }
+    
+    // Wait for WASM to be ready (if the module has a ready promise)
+    if (this.module && this.module.ready) {
+      await this.module.ready;
+    }
+    
     this.initialized = true;
   }
 
   /**
    * Ensure the module is initialized
+   * @private
    */
-  private ensureInitialized(): FalconWasmModule {
+  ensureInitialized() {
     if (!this.initialized || !this.module) {
       throw new Error('Falcon512 module not initialized. Call init() first.');
     }
@@ -106,10 +60,10 @@ export class Falcon512 {
   /**
    * Generate a Falcon-512 keypair from a seed
    * 
-   * @param seed - Seed bytes (recommended: 48 bytes for security)
-   * @returns Object containing public and private keys
+   * @param {Uint8Array} seed - Seed bytes (recommended: 48 bytes for security)
+   * @returns {{publicKey: Uint8Array, privateKey: Uint8Array}} Object containing public and private keys
    */
-  createKeypairFromSeed(seed: Uint8Array): FalconKeypair {
+  createKeypairFromSeed(seed) {
     const module = this.ensureInitialized();
     
     // Allocate memory for seed, private key, and public key
@@ -151,12 +105,12 @@ export class Falcon512 {
   /**
    * Sign a message with a Falcon-512 private key
    * 
-   * @param message - Message to sign
-   * @param privateKey - Private key (1281 bytes)
-   * @param rngSeed - Seed for signature randomness (recommended: 48 bytes)
-   * @returns Signature bytes (compressed format, ~652 bytes average)
+   * @param {Uint8Array} message - Message to sign
+   * @param {Uint8Array} privateKey - Private key (1281 bytes)
+   * @param {Uint8Array} rngSeed - Seed for signature randomness (recommended: 48 bytes)
+   * @returns {Uint8Array} Signature bytes (compressed format, ~652 bytes average)
    */
-  signMessage(message: Uint8Array, privateKey: Uint8Array, rngSeed: Uint8Array): Uint8Array {
+  signMessage(message, privateKey, rngSeed) {
     const module = this.ensureInitialized();
     
     if (privateKey.length !== FALCON512_PRIVKEY_SIZE) {
@@ -214,12 +168,12 @@ export class Falcon512 {
   /**
    * Verify a Falcon-512 signature
    * 
-   * @param message - Original message
-   * @param signature - Signature to verify
-   * @param publicKey - Public key (897 bytes)
-   * @returns true if signature is valid, false otherwise
+   * @param {Uint8Array} message - Original message
+   * @param {Uint8Array} signature - Signature to verify
+   * @param {Uint8Array} publicKey - Public key (897 bytes)
+   * @returns {boolean} true if signature is valid, false otherwise
    */
-  verifySignature(message: Uint8Array, signature: Uint8Array, publicKey: Uint8Array): boolean {
+  verifySignature(message, signature, publicKey) {
     const module = this.ensureInitialized();
     
     if (publicKey.length !== FALCON512_PUBKEY_SIZE) {
@@ -258,10 +212,10 @@ export class Falcon512 {
   /**
    * Hash a message to a point in the Falcon-512 polynomial ring
    * 
-   * @param message - Message to hash
-   * @returns Array of 512 signed 16-bit coefficients
+   * @param {Uint8Array} message - Message to hash
+   * @returns {Int16Array} Array of 512 signed 16-bit coefficients
    */
-  hashToPoint(message: Uint8Array): Int16Array {
+  hashToPoint(message) {
     const module = this.ensureInitialized();
     
     // Allocate memory
@@ -299,10 +253,10 @@ export class Falcon512 {
   /**
    * Extract coefficients from a Falcon-512 public key
    * 
-   * @param publicKey - Encoded public key (897 bytes)
-   * @returns Array of 512 coefficients (mod 12289)
+   * @param {Uint8Array} publicKey - Encoded public key (897 bytes)
+   * @returns {Int16Array} Array of 512 coefficients (mod 12289)
    */
-  getPublicKeyCoefficients(publicKey: Uint8Array): Int16Array {
+  getPublicKeyCoefficients(publicKey) {
     const module = this.ensureInitialized();
     
     if (publicKey.length !== FALCON512_PUBKEY_SIZE) {
@@ -343,10 +297,10 @@ export class Falcon512 {
   /**
    * Extract coefficients from a Falcon-512 signature
    * 
-   * @param signature - Encoded signature
-   * @returns Object with s1 and s2 coefficient arrays (512 elements each)
+   * @param {Uint8Array} signature - Encoded signature
+   * @returns {{s1: Int16Array, s2: Int16Array}} Object with s1 and s2 coefficient arrays (512 elements each)
    */
-  getSignatureCoefficients(signature: Uint8Array): FalconSignatureCoefficients {
+  getSignatureCoefficients(signature) {
     const module = this.ensureInitialized();
     
     // Allocate memory

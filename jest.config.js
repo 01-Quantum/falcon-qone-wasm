@@ -1,25 +1,13 @@
 export default {
-  preset: 'ts-jest/presets/default-esm',
   testEnvironment: 'node',
-  extensionsToTreatAsEsm: ['.ts'],
-  moduleNameMapper: {
-    '^(\\.{1,2}/.*)\\.js$': '$1',
-  },
-  transform: {
-    '^.+\\.tsx?$': [
-      'ts-jest',
-      {
-        useESM: true,
-      },
-    ],
-  },
+  transform: {},
   testMatch: [
-    '**/tests/**/*.test.ts',
+    '**/tests/**/*.test.js',
   ],
   collectCoverageFrom: [
-    'src/**/*.ts',
-    '!src/**/*.d.ts',
+    'src/**/*.js',
   ],
   coverageDirectory: 'coverage',
   verbose: true,
+  testTimeout: 30000, // 30 seconds for WASM operations
 };

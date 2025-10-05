@@ -2,9 +2,9 @@
  * Basic usage example for Falcon-512 WebAssembly module
  */
 
-import { Falcon512 } from '../src/falcon';
-// @ts-ignore
+import { Falcon512 } from '../src/falcon.js';
 import createFalconModule from '../dist/falcon.js';
+import { randomBytes } from 'crypto';
 
 async function main() {
   console.log('Falcon-512 WebAssembly Example\n');
@@ -16,8 +16,7 @@ async function main() {
 
   // 1. Generate a keypair from a seed
   console.log('1. Generating keypair from seed...');
-  const seed = new Uint8Array(48);
-  crypto.getRandomValues(seed); // Use cryptographically secure random
+  const seed = randomBytes(48); // Use cryptographically secure random
   
   const keypair = falcon.createKeypairFromSeed(seed);
   console.log(`   Private key size: ${keypair.privateKey.length} bytes`);
@@ -27,8 +26,7 @@ async function main() {
   console.log('2. Signing a message...');
   const message = new TextEncoder().encode('Hello, Falcon-512! This is a test message.');
   
-  const rngSeed = new Uint8Array(48);
-  crypto.getRandomValues(rngSeed);
+  const rngSeed = randomBytes(48);
   
   const signature = falcon.signMessage(message, keypair.privateKey, rngSeed);
   console.log(`   Message: "${new TextDecoder().decode(message)}"`);
