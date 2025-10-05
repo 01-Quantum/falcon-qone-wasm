@@ -240,7 +240,8 @@
             <div class="info">
                 <strong>ℹ️ About this demo:</strong> Enter a seed string to generate deterministic keypairs. 
                 Signing uses a deterministic RNG seed (all zeros), so the same keypair and message always produce the same signature.
-                You'll see all data in Python-ready format with copy buttons.
+                The Hash-to-Point shows the challenge point <code>c = hash(nonce + message)</code> that Falcon verification actually checks.
+                All data is in Python-ready format with copy buttons.
             </div>
             
             <!-- Input Section -->
@@ -347,10 +348,20 @@
             
             <!-- Hash-to-Point -->
             <div class="section" id="hashSection" style="display:none;">
-                <h2>6️⃣ Hash-to-Point (message → 512 coefficients)</h2>
+                <h2>6️⃣ Hash-to-Point for Verification (nonce + message → 512 coefficients)</h2>
+                
+                <p style="color: #666; margin-bottom: 15px;">
+                    <strong>Note:</strong> This is the challenge point <code>c</code> that verification checks against: <code>s1 + s2*h ≡ c (mod q)</code>
+                </p>
                 
                 <h3>
-                    Python List:
+                    Nonce (extracted from signature, 40 bytes):
+                    <button class="copy-btn" onclick="copyToClipboard('nonceOutput')">📋 Copy</button>
+                </h3>
+                <div class="output small" id="nonceOutput"></div>
+                
+                <h3 style="margin-top: 20px;">
+                    Challenge Point c = hash(nonce + message) - Python List:
                     <button class="copy-btn" onclick="copyToClipboard('hashPython')">📋 Copy</button>
                 </h3>
                 <div class="output" id="hashPython"></div>
@@ -490,10 +501,20 @@
                 document.getElementById('s2Python').textContent = toPythonArray(s2);
                 document.getElementById('sigCoeffsSection').style.display = 'block';
                 
-                // Hash-to-point
-                console.time('Hash-to-Point');
-                const hashPoint = falcon.hashToPoint(message);
-                console.timeEnd('Hash-to-Point');
+                // Extract nonce from signature (bytes 1-40)
+                const nonce = signature.slice(1, 41);
+                document.getElementById('nonceOutput').textContent = toBase64(nonce);
+                
+                // Hash-to-point with nonce (what verification uses!)
+                // We need to hash nonce + message, but Falcon's hashToPoint only takes message
+                // So we'll concatenate them first
+                console.time('Hash-to-Point for Verification');
+                const nonceAndMessage = new Uint8Array(nonce.length + message.length);
+                nonceAndMessage.set(nonce, 0);
+                nonceAndMessage.set(message, nonce.length);
+                const hashPoint = falcon.hashToPoint(nonceAndMessage);
+                console.timeEnd('Hash-to-Point for Verification');
+                
                 document.getElementById('hashPython').textContent = toPythonArray(hashPoint);
                 document.getElementById('hashSection').style.display = 'block';
                 
