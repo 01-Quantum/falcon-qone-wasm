@@ -1,349 +1,261 @@
 # Falcon-512 WebAssembly
 
-A WebAssembly implementation of the **Falcon-512** post-quantum signature scheme, providing a clean TypeScript/JavaScript API for quantum-resistant digital signatures.
+WebAssembly implementation of **Falcon-512** post-quantum signature scheme with clean JavaScript API.
 
 ## Features
 
-- ✅ **Falcon-512** post-quantum signature algorithm (NIST PQC finalist)
-- 🚀 High-performance WebAssembly implementation
+- ✅ Falcon-512 post-quantum signatures (NIST PQC finalist)
+- 🚀 High-performance WebAssembly
 - 🔒 Deterministic keypair generation from seeds
-- 📦 Clean TypeScript API with full type definitions
+- 📦 Pure JavaScript API (no TypeScript required)
 - 🧪 Comprehensive test suite
 - 🔍 Extract polynomial coefficients from keys and signatures
-- 🌐 Works in Node.js and modern browsers
-- ⚡ No modifications to official Falcon C implementation
+- 🌐 Works in Node.js and browsers
+- ⚡ Zero modifications to official Falcon C implementation
 
-## Installation
+## Quick Start
+
+### Install Dependencies
 
 ```bash
-npm install falcon-qone-wasm
+npm install
 ```
 
-## Building from Source
-
-### Option 1: Build with Docker (Recommended)
-
-No need to install Emscripten! Just use Docker:
+### Build
 
 ```bash
-# Clone the repository
-git clone <repository-url>
-cd falcon-qone-wasm
-
-# Install Node dependencies
-npm install
-
-# Build WASM with Docker (one command!)
+# Build WASM with Docker (recommended - no Emscripten install needed!)
 docker-compose up falcon-wasm-builder
 
 # Or use Make
 make build
 
-# Run tests
-npm test
+# Or build locally (requires Emscripten)
+npm run build:wasm
 ```
 
-See [BUILD_WITH_DOCKER.md](BUILD_WITH_DOCKER.md) for detailed Docker instructions.
-
-### Option 2: Build Locally
-
-If you prefer to install Emscripten locally:
-
-**Prerequisites:**
-- **Emscripten SDK** (emcc) for compiling to WebAssembly
-- Node.js 16+
-
-**Build Steps:**
+### Test
 
 ```bash
-# Clone the repository
-git clone <repository-url>
-cd falcon-qone-wasm
-
-# Install dependencies
-npm install
-
-# Build WebAssembly module
-npm run build:wasm      # Linux/Mac
-npm run build:wasm:win  # Windows
-
-# Run tests
 npm test
 ```
 
-See [BUILDING.md](BUILDING.md) for detailed local build instructions.
+### Run Example
 
-## Quick Start
+```bash
+node examples/basic-usage.js
+```
+
+## Usage
 
 ```javascript
-import { Falcon512 } from 'falcon-qone-wasm/src/falcon.js';
-import createFalconModule from 'falcon-qone-wasm/dist/falcon.js';
+import { Falcon512 } from './src/falcon.js';
+import createFalconModule from './dist/falcon.js';
 
 async function example() {
-  // Initialize the WASM module
+  // Initialize
   const falcon = new Falcon512();
   await falcon.init(createFalconModule);
 
-  // Generate a keypair from a seed
+  // Generate keypair
   const seed = new Uint8Array(48);
   crypto.getRandomValues(seed);
   const keypair = falcon.createKeypairFromSeed(seed);
 
-  // Sign a message
+  // Sign message
   const message = new TextEncoder().encode('Hello, Falcon!');
   const rngSeed = new Uint8Array(48);
   crypto.getRandomValues(rngSeed);
   const signature = falcon.signMessage(message, keypair.privateKey, rngSeed);
 
-  // Verify the signature
+  // Verify
   const isValid = falcon.verifySignature(message, signature, keypair.publicKey);
-  console.log('Signature valid:', isValid); // true
+  console.log('Valid:', isValid); // true
 }
 
 example();
 ```
 
-## API Reference
-
-### Initialization
-
-```typescript
-const falcon = new Falcon512();
-await falcon.init(createFalconModule);
-```
+## API
 
 ### Core Operations
 
-#### `createKeypairFromSeed(seed: Uint8Array): FalconKeypair`
+#### `createKeypairFromSeed(seed)`
+- **seed**: `Uint8Array` (48 bytes recommended)
+- **Returns**: `{ publicKey, privateKey }`
+  - publicKey: 897 bytes
+  - privateKey: 1281 bytes
 
-Generate a Falcon-512 keypair deterministically from a seed.
+#### `signMessage(message, privateKey, rngSeed)`
+- **message**: `Uint8Array`
+- **privateKey**: `Uint8Array` (1281 bytes)
+- **rngSeed**: `Uint8Array` (48 bytes recommended)
+- **Returns**: `Uint8Array` (signature, ~652 bytes avg)
 
-- **seed**: Seed bytes (recommended: 48 bytes)
-- **Returns**: `{ publicKey: Uint8Array, privateKey: Uint8Array }`
-  - Private key: 1281 bytes
-  - Public key: 897 bytes
+#### `verifySignature(message, signature, publicKey)`
+- **message**: `Uint8Array`
+- **signature**: `Uint8Array`
+- **publicKey**: `Uint8Array` (897 bytes)
+- **Returns**: `boolean`
 
-```typescript
-const seed = new Uint8Array(48);
-crypto.getRandomValues(seed);
-const keypair = falcon.createKeypairFromSeed(seed);
-```
+### Advanced Functions
 
-#### `signMessage(message: Uint8Array, privateKey: Uint8Array, rngSeed: Uint8Array): Uint8Array`
+#### `hashToPoint(message)`
+Returns `Int16Array` of 512 polynomial coefficients.
 
-Sign a message with a private key.
+#### `getPublicKeyCoefficients(publicKey)`
+Returns `Int16Array` of 512 coefficients (mod 12289).
 
-- **message**: Message to sign (any length)
-- **privateKey**: Private key (1281 bytes)
-- **rngSeed**: RNG seed for signature randomness (recommended: 48 bytes)
-- **Returns**: Signature (compressed format, ~652 bytes average, max 752 bytes)
-
-```typescript
-const message = new TextEncoder().encode('Sign this message');
-const rngSeed = new Uint8Array(48);
-crypto.getRandomValues(rngSeed);
-const signature = falcon.signMessage(message, keypair.privateKey, rngSeed);
-```
-
-#### `verifySignature(message: Uint8Array, signature: Uint8Array, publicKey: Uint8Array): boolean`
-
-Verify a signature.
-
-- **message**: Original message
-- **signature**: Signature to verify
-- **publicKey**: Public key (897 bytes)
-- **Returns**: `true` if valid, `false` otherwise
-
-```typescript
-const isValid = falcon.verifySignature(message, signature, keypair.publicKey);
-```
-
-### Coefficient Extraction
-
-#### `hashToPoint(message: Uint8Array): Int16Array`
-
-Hash a message to a point in the Falcon-512 polynomial ring.
-
-- **message**: Message to hash
-- **Returns**: 512 signed 16-bit coefficients
-
-```typescript
-const point = falcon.hashToPoint(message);
-console.log(point.length); // 512
-```
-
-#### `getPublicKeyCoefficients(publicKey: Uint8Array): Int16Array`
-
-Extract polynomial coefficients from a public key.
-
-- **publicKey**: Encoded public key (897 bytes)
-- **Returns**: 512 coefficients (mod 12289)
-
-```typescript
-const coeffs = falcon.getPublicKeyCoefficients(keypair.publicKey);
-console.log(coeffs.length); // 512
-```
-
-#### `getSignatureCoefficients(signature: Uint8Array): FalconSignatureCoefficients`
-
-Extract signature polynomials s1 and s2.
-
-- **signature**: Encoded signature
-- **Returns**: `{ s1: Int16Array, s2: Int16Array }` (512 elements each)
-
-```typescript
-const { s1, s2 } = falcon.getSignatureCoefficients(signature);
-console.log(s1.length, s2.length); // 512 512
-```
+#### `getSignatureCoefficients(signature)`
+Returns `{ s1: Int16Array, s2: Int16Array }` (512 elements each).
 
 ### Constants
 
-```typescript
+```javascript
 Falcon512.constants = {
   N: 512,                 // Polynomial degree
-  PRIVKEY_SIZE: 1281,     // Private key size in bytes
-  PUBKEY_SIZE: 897,       // Public key size in bytes
-  SIG_MAX_SIZE: 752,      // Maximum signature size in bytes
+  PRIVKEY_SIZE: 1281,     // bytes
+  PUBKEY_SIZE: 897,       // bytes
+  SIG_MAX_SIZE: 752,      // bytes
   Q: 12289,               // Modulus
 };
 ```
 
-## Type Definitions
+## Building
 
-```typescript
-interface FalconKeypair {
-  publicKey: Uint8Array;   // 897 bytes
-  privateKey: Uint8Array;  // 1281 bytes
-}
+### Docker Build (Recommended)
 
-interface FalconSignatureCoefficients {
-  s1: Int16Array;  // 512 elements
-  s2: Int16Array;  // 512 elements
-}
+No Emscripten installation required!
+
+```bash
+# One command
+docker-compose up falcon-wasm-builder
+
+# Or use Make
+make build
 ```
 
-## Security Considerations
+See [docker-compose.yml](docker-compose.yml) for configuration.
 
-1. **Seed Generation**: Use cryptographically secure random number generators (e.g., `crypto.getRandomValues()`) for seeds.
+### Local Build
 
-2. **Deterministic Keys**: The same seed always produces the same keypair. Store seeds securely.
+Requires [Emscripten SDK](https://emscripten.org/).
 
-3. **Signature Randomness**: Each signature requires a fresh RNG seed. Reusing seeds can leak information.
+```bash
+# Linux/Mac
+npm run build:wasm
 
-4. **Key Sizes**: 
-   - Private keys: 1281 bytes (keep secret!)
-   - Public keys: 897 bytes (can be shared)
-   - Signatures: ~652 bytes average, max 752 bytes
+# Windows
+npm run build:wasm:win
+```
 
-5. **Post-Quantum Security**: Falcon-512 provides approximately NIST security level 1 (~128-bit equivalent security against quantum attacks).
-
-## Performance
-
-Approximate timings on modern hardware (single core):
-
-- **Key generation**: 50-100ms
-- **Signature**: 20-50ms
-- **Verification**: 5-10ms
-
-WebAssembly performance is typically 1.5-3x slower than native C, but still very practical for most applications.
-
-## Implementation Details
-
-### Architecture
+## Project Structure
 
 ```
 falcon-qone-wasm/
-├── Falcon-impl-round3/      # Official Falcon C implementation (unmodified)
 ├── src/
-│   ├── falcon_wasm.c        # C wrapper for WASM exports
-│   └── falcon.ts            # TypeScript API
-├── dist/                    # Build output
+│   ├── falcon_wasm.c       # C wrapper for WASM
+│   └── falcon.js           # JavaScript API
+├── dist/                   # Build output
 │   ├── falcon.wasm
-│   ├── falcon.js
-│   └── falcon.d.ts
-├── tests/                   # Test suite
-├── examples/                # Usage examples
-└── build.sh / build.bat     # Build scripts
+│   └── falcon.js
+├── tests/
+│   ├── falcon.test.js
+│   └── setup.js
+├── examples/
+│   ├── basic-usage.js
+│   └── browser-example.html
+├── Falcon-impl-round3/     # Official Falcon C code
+├── docker-compose.yml      # Docker build config
+├── Dockerfile
+├── build.sh / build.bat    # Build scripts
+└── Makefile                # Convenient commands
 ```
 
-### Design Principles
+## Security
 
-1. **No modifications** to the official Falcon implementation
-2. Clean separation between C wrapper and TypeScript API
-3. Proper memory management (no leaks)
-4. Comprehensive error handling
-5. Type-safe TypeScript interface
+1. **Use crypto.getRandomValues()** for all seeds
+2. **Never reuse RNG seeds** for signing
+3. **Store private keys securely**
+4. **Validate inputs** from untrusted sources
 
-## Testing
+Falcon-512 provides NIST security level 1 (~128-bit quantum-resistant security).
 
-```bash
-# Run all tests
-npm test
+## Performance
 
-# Run tests in watch mode
-npm run test:watch
-```
+Approximate timings:
+- Key generation: 50-100ms
+- Signing: 20-50ms
+- Verification: 5-10ms
 
-The test suite includes:
-- Keypair generation (deterministic and randomized)
-- Sign/verify round-trip tests
-- Coefficient extraction validation
-- Edge cases (empty messages, large messages)
-- Integration tests
+## Browser Support
 
-## Examples
-
-See the `examples/` directory for complete examples:
-
-```bash
-# Run the basic usage example
-node examples/basic-usage.js
-```
-
-## FAQ
-
-### Why Falcon-512?
-
-Falcon is a NIST PQC finalist offering:
-- Fast verification
-- Relatively small signatures (~652 bytes)
-- Strong security guarantees
-- Based on NTRU lattice problems
-
-### Browser Support
-
-Works in all modern browsers supporting WebAssembly:
 - Chrome/Edge 57+
 - Firefox 52+
 - Safari 11+
 
-### Can I use this in production?
+## Commands
 
-While Falcon is a strong algorithm, consider:
-- It's a relatively new standard
-- WebAssembly may have different security properties than native code
-- Always follow best practices for key management
-- Consider a security audit for critical applications
+```bash
+# Build
+make build              # Build WASM with Docker
+make build-local        # Build WASM locally
+docker-compose up falcon-wasm-builder
+
+# Test
+npm test
+npm run test:watch
+
+# Clean
+make clean
+npm run clean
+
+# Docker
+make docker-shell       # Interactive shell
+make docker-clean       # Remove Docker resources
+```
+
+## Troubleshooting
+
+### "Cannot find module '../dist/falcon.js'"
+
+Build the WASM first:
+```bash
+docker-compose up falcon-wasm-builder
+```
+
+### "Class constructor cannot be invoked without 'new'"
+
+Make sure `dist/falcon.js` is the Emscripten output, not your source. Rebuild:
+```bash
+rm -rf dist/
+docker-compose up falcon-wasm-builder
+```
+
+### Tests fail
+
+Ensure WASM is built first:
+```bash
+docker-compose up falcon-wasm-builder
+npm test
+```
 
 ## License
 
-This project uses the official Falcon implementation, which is provided under the MIT License. See `Falcon-impl-round3/` for details.
+MIT License. See [LICENSE](LICENSE).
+
+Based on the official Falcon implementation by Thomas Pornin and the Falcon team.
 
 ## References
 
 - [Falcon Specification](https://falcon-sign.info/)
 - [NIST PQC Project](https://csrc.nist.gov/projects/post-quantum-cryptography)
-- [Falcon Paper](https://falcon-sign.info/falcon.pdf)
+- [Emscripten](https://emscripten.org/)
 
 ## Contributing
 
-Contributions are welcome! Please:
 1. Fork the repository
 2. Create a feature branch
-3. Add tests for new functionality
-4. Ensure all tests pass
+3. Add tests
+4. Ensure `npm test` passes
 5. Submit a pull request
-
-## Acknowledgments
-
-Based on the official Falcon implementation by Thomas Pornin and the Falcon team.
