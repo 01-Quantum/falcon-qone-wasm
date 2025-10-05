@@ -279,13 +279,13 @@
                 
                 <h3 style="margin-top: 20px;">
                     Private Key (Base64):
-                    <button class="copy-btn" onclick="copyToClipboard('privkeyOutput')">📋 Copy</button>
+                    <button class="copy-btn" onclick="copyToClipboard('privkeyOutput', this)">📋 Copy</button>
                 </h3>
                 <div class="output small" id="privkeyOutput"></div>
                 
                 <h3 style="margin-top: 20px;">
                     Public Key (Base64):
-                    <button class="copy-btn" onclick="copyToClipboard('pubkeyOutput')">📋 Copy</button>
+                    <button class="copy-btn" onclick="copyToClipboard('pubkeyOutput', this)">📋 Copy</button>
                 </h3>
                 <div class="output small" id="pubkeyOutput"></div>
             </div>
@@ -296,7 +296,7 @@
                 
                 <h3>
                     Python List:
-                    <button class="copy-btn" onclick="copyToClipboard('pubkeyCoeffsPython')">📋 Copy</button>
+                    <button class="copy-btn" onclick="copyToClipboard('pubkeyCoeffsPython', this)">📋 Copy</button>
                 </h3>
                 <div class="output" id="pubkeyCoeffsPython"></div>
             </div>
@@ -318,13 +318,13 @@
                 
                 <h3 style="margin-top: 20px;">
                     RNG Seed for Signing (Deterministic - all zeros):
-                    <button class="copy-btn" onclick="copyToClipboard('rngSeedOutput')">📋 Copy</button>
+                    <button class="copy-btn" onclick="copyToClipboard('rngSeedOutput', this)">📋 Copy</button>
                 </h3>
                 <div class="output small" id="rngSeedOutput"></div>
                 
                 <h3 style="margin-top: 20px;">
                     Signature (Base64):
-                    <button class="copy-btn" onclick="copyToClipboard('signatureOutput')">📋 Copy</button>
+                    <button class="copy-btn" onclick="copyToClipboard('signatureOutput', this)">📋 Copy</button>
                 </h3>
                 <div class="output small" id="signatureOutput"></div>
             </div>
@@ -335,13 +335,13 @@
                 
                 <h3>
                     s1 Coefficients (512 elements):
-                    <button class="copy-btn" onclick="copyToClipboard('s1Python')">📋 Copy</button>
+                    <button class="copy-btn" onclick="copyToClipboard('s1Python', this)">📋 Copy</button>
                 </h3>
                 <div class="output" id="s1Python"></div>
                 
                 <h3 style="margin-top: 20px;">
                     s2 Coefficients (512 elements):
-                    <button class="copy-btn" onclick="copyToClipboard('s2Python')">📋 Copy</button>
+                    <button class="copy-btn" onclick="copyToClipboard('s2Python', this)">📋 Copy</button>
                 </h3>
                 <div class="output" id="s2Python"></div>
             </div>
@@ -356,13 +356,13 @@
                 
                 <h3>
                     Nonce (extracted from signature, 40 bytes):
-                    <button class="copy-btn" onclick="copyToClipboard('nonceOutput')">📋 Copy</button>
+                    <button class="copy-btn" onclick="copyToClipboard('nonceOutput', this)">📋 Copy</button>
                 </h3>
                 <div class="output small" id="nonceOutput"></div>
                 
                 <h3 style="margin-top: 20px;">
                     Challenge Point c = hash(nonce + message) - Python List:
-                    <button class="copy-btn" onclick="copyToClipboard('hashPython')">📋 Copy</button>
+                    <button class="copy-btn" onclick="copyToClipboard('hashPython', this)">📋 Copy</button>
                 </h3>
                 <div class="output" id="hashPython"></div>
             </div>
@@ -420,15 +420,14 @@
         }
         
         // Copy to clipboard
-        window.copyToClipboard = async function(elementId) {
+        window.copyToClipboard = async function(elementId, buttonElement) {
             const text = document.getElementById(elementId).textContent;
             try {
                 await navigator.clipboard.writeText(text);
-                const btn = event.target;
-                const originalText = btn.textContent;
-                btn.textContent = '✅ Copied!';
+                const originalText = buttonElement.textContent;
+                buttonElement.textContent = '✅ Copied!';
                 setTimeout(() => {
-                    btn.textContent = originalText;
+                    buttonElement.textContent = originalText;
                 }, 2000);
             } catch (err) {
                 alert('Failed to copy: ' + err);
