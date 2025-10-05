@@ -1,0 +1,48 @@
+{
+  "name": "falcon-qone-wasm",
+  "version": "1.0.0",
+  "description": "Falcon-512 post-quantum signature scheme compiled to WebAssembly",
+  "main": "dist/falcon.js",
+  "types": "dist/falcon.d.ts",
+  "type": "module",
+  "scripts": {
+    "build:wasm": "bash build.sh",
+    "build:wasm:win": "build.bat",
+    "build:ts": "tsc",
+    "build": "npm run build:wasm && npm run build:ts",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "clean": "rm -rf dist"
+  },
+  "keywords": [
+    "falcon",
+    "falcon-512",
+    "post-quantum",
+    "cryptography",
+    "signatures",
+    "wasm",
+    "webassembly",
+    "lattice-based"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/emscripten": "^1.39.10",
+    "@types/jest": "^29.5.11",
+    "@types/node": "^20.10.6",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.1.1",
+    "typescript": "^5.3.3"
+  },
+  "files": [
+    "dist/",
+    "src/",
+    "Falcon-impl-round3/",
+    "build.sh",
+    "build.bat",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=16.0.0"
+  }
+}

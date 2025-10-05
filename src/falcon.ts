@@ -1,0 +1,406 @@
+/**
+ * Falcon-512 WebAssembly TypeScript API
+ * 
+ * Provides a clean TypeScript interface for Falcon-512 post-quantum signatures
+ */
+
+// Type definitions
+export interface FalconKeypair {
+  publicKey: Uint8Array;   // 897 bytes
+  privateKey: Uint8Array;  // 1281 bytes
+}
+
+export interface FalconSignatureCoefficients {
+  s1: Int16Array;  // 512 elements
+  s2: Int16Array;  // 512 elements
+}
+
+// WebAssembly module interface
+interface FalconWasmModule extends EmscriptenModule {
+  _wasm_malloc(size: number): number;
+  _wasm_free(ptr: number): void;
+  
+  _falcon512_keygen_from_seed(
+    seed: number, seed_len: number,
+    privkey: number, pubkey: number
+  ): number;
+  
+  _falcon512_sign(
+    message: number, message_len: number,
+    privkey: number,
+    rng_seed: number, rng_seed_len: number,
+    sig: number, sig_len_ptr: number
+  ): number;
+  
+  _falcon512_verify(
+    message: number, message_len: number,
+    signature: number, signature_len: number,
+    pubkey: number
+  ): number;
+  
+  _falcon512_hash_to_point(
+    message: number, message_len: number,
+    point_out: number
+  ): number;
+  
+  _falcon512_get_pubkey_coefficients(
+    pubkey: number, coeffs_out: number
+  ): number;
+  
+  _falcon512_get_signature_coefficients(
+    signature: number, signature_len: number,
+    s1_out: number, s2_out: number
+  ): number;
+  
+  _falcon512_get_privkey_size(): number;
+  _falcon512_get_pubkey_size(): number;
+  _falcon512_get_sig_max_size(): number;
+  _falcon512_get_n(): number;
+  
+  HEAP8: Int8Array;
+  HEAP16: Int16Array;
+  HEAPU8: Uint8Array;
+  HEAPU16: Uint16Array;
+}
+
+interface EmscriptenModule {
+  ready: Promise<void>;
+}
+
+// Constants
+const FALCON512_N = 512;
+const FALCON512_PRIVKEY_SIZE = 1281;
+const FALCON512_PUBKEY_SIZE = 897;
+const FALCON512_SIG_MAX_SIZE = 752;
+
+/**
+ * Falcon-512 WebAssembly API
+ */
+export class Falcon512 {
+  private module: FalconWasmModule | null = null;
+  private initialized: boolean = false;
+
+  /**
+   * Initialize the Falcon-512 WASM module
+   */
+  async init(moduleFactory: () => Promise<FalconWasmModule>): Promise<void> {
+    if (this.initialized) {
+      return;
+    }
+    
+    this.module = await moduleFactory();
+    await this.module.ready;
+    this.initialized = true;
+  }
+
+  /**
+   * Ensure the module is initialized
+   */
+  private ensureInitialized(): FalconWasmModule {
+    if (!this.initialized || !this.module) {
+      throw new Error('Falcon512 module not initialized. Call init() first.');
+    }
+    return this.module;
+  }
+
+  /**
+   * Generate a Falcon-512 keypair from a seed
+   * 
+   * @param seed - Seed bytes (recommended: 48 bytes for security)
+   * @returns Object containing public and private keys
+   */
+  createKeypairFromSeed(seed: Uint8Array): FalconKeypair {
+    const module = this.ensureInitialized();
+    
+    // Allocate memory for seed, private key, and public key
+    const seedPtr = module._wasm_malloc(seed.length);
+    const privkeyPtr = module._wasm_malloc(FALCON512_PRIVKEY_SIZE);
+    const pubkeyPtr = module._wasm_malloc(FALCON512_PUBKEY_SIZE);
+    
+    try {
+      // Copy seed to WASM memory
+      module.HEAPU8.set(seed, seedPtr);
+      
+      // Generate keypair
+      const result = module._falcon512_keygen_from_seed(
+        seedPtr, seed.length,
+        privkeyPtr, pubkeyPtr
+      );
+      
+      if (result !== 0) {
+        throw new Error(`Keypair generation failed with error code: ${result}`);
+      }
+      
+      // Copy results back to JavaScript
+      const privateKey = new Uint8Array(FALCON512_PRIVKEY_SIZE);
+      const publicKey = new Uint8Array(FALCON512_PUBKEY_SIZE);
+      
+      privateKey.set(module.HEAPU8.subarray(privkeyPtr, privkeyPtr + FALCON512_PRIVKEY_SIZE));
+      publicKey.set(module.HEAPU8.subarray(pubkeyPtr, pubkeyPtr + FALCON512_PUBKEY_SIZE));
+      
+      return { privateKey, publicKey };
+      
+    } finally {
+      // Clean up
+      module._wasm_free(seedPtr);
+      module._wasm_free(privkeyPtr);
+      module._wasm_free(pubkeyPtr);
+    }
+  }
+
+  /**
+   * Sign a message with a Falcon-512 private key
+   * 
+   * @param message - Message to sign
+   * @param privateKey - Private key (1281 bytes)
+   * @param rngSeed - Seed for signature randomness (recommended: 48 bytes)
+   * @returns Signature bytes (compressed format, ~652 bytes average)
+   */
+  signMessage(message: Uint8Array, privateKey: Uint8Array, rngSeed: Uint8Array): Uint8Array {
+    const module = this.ensureInitialized();
+    
+    if (privateKey.length !== FALCON512_PRIVKEY_SIZE) {
+      throw new Error(`Invalid private key size: expected ${FALCON512_PRIVKEY_SIZE}, got ${privateKey.length}`);
+    }
+    
+    // Allocate memory
+    const messagePtr = module._wasm_malloc(message.length);
+    const privkeyPtr = module._wasm_malloc(privateKey.length);
+    const rngSeedPtr = module._wasm_malloc(rngSeed.length);
+    const sigPtr = module._wasm_malloc(FALCON512_SIG_MAX_SIZE);
+    const sigLenPtr = module._wasm_malloc(8); // size_t
+    
+    try {
+      // Copy inputs to WASM memory
+      module.HEAPU8.set(message, messagePtr);
+      module.HEAPU8.set(privateKey, privkeyPtr);
+      module.HEAPU8.set(rngSeed, rngSeedPtr);
+      
+      // Set initial signature length
+      const sigLenView = new DataView(module.HEAPU8.buffer, sigLenPtr, 8);
+      sigLenView.setUint32(0, FALCON512_SIG_MAX_SIZE, true);
+      
+      // Sign message
+      const result = module._falcon512_sign(
+        messagePtr, message.length,
+        privkeyPtr,
+        rngSeedPtr, rngSeed.length,
+        sigPtr, sigLenPtr
+      );
+      
+      if (result !== 0) {
+        throw new Error(`Signature generation failed with error code: ${result}`);
+      }
+      
+      // Get actual signature length
+      const actualSigLen = sigLenView.getUint32(0, true);
+      
+      // Copy signature back
+      const signature = new Uint8Array(actualSigLen);
+      signature.set(module.HEAPU8.subarray(sigPtr, sigPtr + actualSigLen));
+      
+      return signature;
+      
+    } finally {
+      // Clean up
+      module._wasm_free(messagePtr);
+      module._wasm_free(privkeyPtr);
+      module._wasm_free(rngSeedPtr);
+      module._wasm_free(sigPtr);
+      module._wasm_free(sigLenPtr);
+    }
+  }
+
+  /**
+   * Verify a Falcon-512 signature
+   * 
+   * @param message - Original message
+   * @param signature - Signature to verify
+   * @param publicKey - Public key (897 bytes)
+   * @returns true if signature is valid, false otherwise
+   */
+  verifySignature(message: Uint8Array, signature: Uint8Array, publicKey: Uint8Array): boolean {
+    const module = this.ensureInitialized();
+    
+    if (publicKey.length !== FALCON512_PUBKEY_SIZE) {
+      throw new Error(`Invalid public key size: expected ${FALCON512_PUBKEY_SIZE}, got ${publicKey.length}`);
+    }
+    
+    // Allocate memory
+    const messagePtr = module._wasm_malloc(message.length);
+    const signaturePtr = module._wasm_malloc(signature.length);
+    const pubkeyPtr = module._wasm_malloc(publicKey.length);
+    
+    try {
+      // Copy inputs to WASM memory
+      module.HEAPU8.set(message, messagePtr);
+      module.HEAPU8.set(signature, signaturePtr);
+      module.HEAPU8.set(publicKey, pubkeyPtr);
+      
+      // Verify signature
+      const result = module._falcon512_verify(
+        messagePtr, message.length,
+        signaturePtr, signature.length,
+        pubkeyPtr
+      );
+      
+      // 0 = valid, negative = error (including invalid signature)
+      return result === 0;
+      
+    } finally {
+      // Clean up
+      module._wasm_free(messagePtr);
+      module._wasm_free(signaturePtr);
+      module._wasm_free(pubkeyPtr);
+    }
+  }
+
+  /**
+   * Hash a message to a point in the Falcon-512 polynomial ring
+   * 
+   * @param message - Message to hash
+   * @returns Array of 512 signed 16-bit coefficients
+   */
+  hashToPoint(message: Uint8Array): Int16Array {
+    const module = this.ensureInitialized();
+    
+    // Allocate memory
+    const messagePtr = module._wasm_malloc(message.length);
+    const pointPtr = module._wasm_malloc(FALCON512_N * 2); // 512 int16_t
+    
+    try {
+      // Copy message to WASM memory
+      module.HEAPU8.set(message, messagePtr);
+      
+      // Compute hash-to-point
+      const result = module._falcon512_hash_to_point(
+        messagePtr, message.length,
+        pointPtr
+      );
+      
+      if (result !== 0) {
+        throw new Error(`Hash-to-point failed with error code: ${result}`);
+      }
+      
+      // Copy result back
+      const point = new Int16Array(FALCON512_N);
+      const pointView = new Int16Array(module.HEAP16.buffer, pointPtr, FALCON512_N);
+      point.set(pointView);
+      
+      return point;
+      
+    } finally {
+      // Clean up
+      module._wasm_free(messagePtr);
+      module._wasm_free(pointPtr);
+    }
+  }
+
+  /**
+   * Extract coefficients from a Falcon-512 public key
+   * 
+   * @param publicKey - Encoded public key (897 bytes)
+   * @returns Array of 512 coefficients (mod 12289)
+   */
+  getPublicKeyCoefficients(publicKey: Uint8Array): Int16Array {
+    const module = this.ensureInitialized();
+    
+    if (publicKey.length !== FALCON512_PUBKEY_SIZE) {
+      throw new Error(`Invalid public key size: expected ${FALCON512_PUBKEY_SIZE}, got ${publicKey.length}`);
+    }
+    
+    // Allocate memory
+    const pubkeyPtr = module._wasm_malloc(publicKey.length);
+    const coeffsPtr = module._wasm_malloc(FALCON512_N * 2); // 512 int16_t
+    
+    try {
+      // Copy public key to WASM memory
+      module.HEAPU8.set(publicKey, pubkeyPtr);
+      
+      // Extract coefficients
+      const result = module._falcon512_get_pubkey_coefficients(
+        pubkeyPtr, coeffsPtr
+      );
+      
+      if (result !== 0) {
+        throw new Error(`Failed to extract public key coefficients: error code ${result}`);
+      }
+      
+      // Copy result back
+      const coeffs = new Int16Array(FALCON512_N);
+      const coeffsView = new Int16Array(module.HEAP16.buffer, coeffsPtr, FALCON512_N);
+      coeffs.set(coeffsView);
+      
+      return coeffs;
+      
+    } finally {
+      // Clean up
+      module._wasm_free(pubkeyPtr);
+      module._wasm_free(coeffsPtr);
+    }
+  }
+
+  /**
+   * Extract coefficients from a Falcon-512 signature
+   * 
+   * @param signature - Encoded signature
+   * @returns Object with s1 and s2 coefficient arrays (512 elements each)
+   */
+  getSignatureCoefficients(signature: Uint8Array): FalconSignatureCoefficients {
+    const module = this.ensureInitialized();
+    
+    // Allocate memory
+    const signaturePtr = module._wasm_malloc(signature.length);
+    const s1Ptr = module._wasm_malloc(FALCON512_N * 2); // 512 int16_t
+    const s2Ptr = module._wasm_malloc(FALCON512_N * 2); // 512 int16_t
+    
+    try {
+      // Copy signature to WASM memory
+      module.HEAPU8.set(signature, signaturePtr);
+      
+      // Extract coefficients
+      const result = module._falcon512_get_signature_coefficients(
+        signaturePtr, signature.length,
+        s1Ptr, s2Ptr
+      );
+      
+      if (result !== 0) {
+        throw new Error(`Failed to extract signature coefficients: error code ${result}`);
+      }
+      
+      // Copy results back
+      const s1 = new Int16Array(FALCON512_N);
+      const s2 = new Int16Array(FALCON512_N);
+      
+      const s1View = new Int16Array(module.HEAP16.buffer, s1Ptr, FALCON512_N);
+      const s2View = new Int16Array(module.HEAP16.buffer, s2Ptr, FALCON512_N);
+      
+      s1.set(s1View);
+      s2.set(s2View);
+      
+      return { s1, s2 };
+      
+    } finally {
+      // Clean up
+      module._wasm_free(signaturePtr);
+      module._wasm_free(s1Ptr);
+      module._wasm_free(s2Ptr);
+    }
+  }
+
+  /**
+   * Get Falcon-512 constants
+   */
+  static get constants() {
+    return {
+      N: FALCON512_N,
+      PRIVKEY_SIZE: FALCON512_PRIVKEY_SIZE,
+      PUBKEY_SIZE: FALCON512_PUBKEY_SIZE,
+      SIG_MAX_SIZE: FALCON512_SIG_MAX_SIZE,
+      Q: 12289, // Modulus
+    };
+  }
+}
+
+// Export for convenience
+export default Falcon512;
