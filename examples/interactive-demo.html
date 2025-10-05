@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Falcon-512 Interactive Demo</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+        
+        .content {
+            padding: 30px;
+        }
+        
+        .section {
+            margin-bottom: 30px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            border-left: 4px solid #667eea;
+        }
+        
+        .section h2 {
+            color: #667eea;
+            margin-bottom: 15px;
+            font-size: 1.5em;
+        }
+        
+        .input-group {
+            margin-bottom: 15px;
+        }
+        
+        .input-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            color: #333;
+        }
+        
+        input[type="text"], textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            font-family: 'Courier New', monospace;
+            transition: border-color 0.3s;
+        }
+        
+        input[type="text"]:focus, textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        textarea {
+            min-height: 80px;
+            resize: vertical;
+        }
+        
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+        
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        
+        button:active {
+            transform: translateY(0);
+        }
+        
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .copy-btn {
+            background: #4caf50;
+            padding: 8px 15px;
+            font-size: 14px;
+            margin-left: 10px;
+        }
+        
+        .copy-btn:hover {
+            background: #45a049;
+        }
+        
+        .output {
+            background: #2d2d2d;
+            color: #f8f8f2;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            overflow-x: auto;
+            margin-top: 10px;
+            max-height: 400px;
+            overflow-y: auto;
+            position: relative;
+        }
+        
+        .output.small {
+            max-height: 150px;
+        }
+        
+        /* Visual grid styles removed - showing Python format only */
+        
+        .success {
+            color: #4caf50;
+            font-weight: bold;
+        }
+        
+        .error {
+            color: #f44336;
+            font-weight: bold;
+        }
+        
+        .info {
+            background: #e3f2fd;
+            border-left: 4px solid #2196f3;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        
+        .status {
+            padding: 10px 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-weight: 600;
+        }
+        
+        .status.loading {
+            background: #fff3cd;
+            color: #856404;
+        }
+        
+        .status.ready {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        
+        .hex-display {
+            word-break: break-all;
+            line-height: 1.8;
+        }
+        
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+        
+        .stat-box {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+            border: 2px solid #e0e0e0;
+        }
+        
+        .stat-label {
+            font-size: 12px;
+            color: #666;
+            text-transform: uppercase;
+            margin-bottom: 5px;
+        }
+        
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #667eea;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔐 Falcon-512 Interactive Demo</h1>
+            <p>Explore post-quantum signatures with full coefficient visibility</p>
+        </div>
+        
+        <div class="content">
+            <div id="status" class="status loading">Loading WebAssembly module...</div>
+            
+            <div class="info">
+                <strong>ℹ️ About this demo:</strong> Enter a seed string to generate deterministic keypairs. 
+                Signing uses a deterministic RNG seed (all zeros), so the same keypair and message always produce the same signature.
+                You'll see all data in Python-ready format with copy buttons.
+            </div>
+            
+            <!-- Input Section -->
+            <div class="section">
+                <h2>1️⃣ Input Parameters</h2>
+                
+                <div class="input-group">
+                    <label for="seedInput">Seed String (will be hashed to 48 bytes):</label>
+                    <input type="text" id="seedInput" value="my-secret-seed-12345" placeholder="Enter any text as seed">
+                </div>
+                
+                <div class="input-group">
+                    <label for="messageInput">Message to Sign:</label>
+                    <textarea id="messageInput">Hello, Falcon-512! This is a test message.</textarea>
+                </div>
+                
+                <button id="generateBtn" onclick="generateAll()" disabled>🚀 Generate & Sign</button>
+                <button onclick="randomizeSeed()">🎲 Random Seed</button>
+            </div>
+            
+            <!-- Keypair Section -->
+            <div class="section" id="keypairSection" style="display:none;">
+                <h2>2️⃣ Generated Keypair</h2>
+                
+                <div class="stats">
+                    <div class="stat-box">
+                        <div class="stat-label">Private Key</div>
+                        <div class="stat-value">1281 B</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-label">Public Key</div>
+                        <div class="stat-value">897 B</div>
+                    </div>
+                </div>
+                
+                <h3 style="margin-top: 20px;">
+                    Private Key (Base64):
+                    <button class="copy-btn" onclick="copyToClipboard('privkeyOutput')">📋 Copy</button>
+                </h3>
+                <div class="output small" id="privkeyOutput"></div>
+                
+                <h3 style="margin-top: 20px;">
+                    Public Key (Base64):
+                    <button class="copy-btn" onclick="copyToClipboard('pubkeyOutput')">📋 Copy</button>
+                </h3>
+                <div class="output small" id="pubkeyOutput"></div>
+            </div>
+            
+            <!-- Public Key Coefficients -->
+            <div class="section" id="pubkeyCoeffsSection" style="display:none;">
+                <h2>3️⃣ Public Key Coefficients (512 elements, mod 12289)</h2>
+                
+                <h3>
+                    Python List:
+                    <button class="copy-btn" onclick="copyToClipboard('pubkeyCoeffsPython')">📋 Copy</button>
+                </h3>
+                <div class="output" id="pubkeyCoeffsPython"></div>
+            </div>
+            
+            <!-- Signature Section -->
+            <div class="section" id="signatureSection" style="display:none;">
+                <h2>4️⃣ Generated Signature</h2>
+                
+                <div class="stats">
+                    <div class="stat-box">
+                        <div class="stat-label">Signature Size</div>
+                        <div class="stat-value" id="sigSize">-</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-label">Verification</div>
+                        <div class="stat-value" id="sigValid">-</div>
+                    </div>
+                </div>
+                
+                <h3 style="margin-top: 20px;">
+                    RNG Seed for Signing (Deterministic - all zeros):
+                    <button class="copy-btn" onclick="copyToClipboard('rngSeedOutput')">📋 Copy</button>
+                </h3>
+                <div class="output small" id="rngSeedOutput"></div>
+                
+                <h3 style="margin-top: 20px;">
+                    Signature (Base64):
+                    <button class="copy-btn" onclick="copyToClipboard('signatureOutput')">📋 Copy</button>
+                </h3>
+                <div class="output small" id="signatureOutput"></div>
+            </div>
+            
+            <!-- Signature Coefficients -->
+            <div class="section" id="sigCoeffsSection" style="display:none;">
+                <h2>5️⃣ Signature Coefficients (s1 and s2)</h2>
+                
+                <h3>
+                    s1 Coefficients (512 elements):
+                    <button class="copy-btn" onclick="copyToClipboard('s1Python')">📋 Copy</button>
+                </h3>
+                <div class="output" id="s1Python"></div>
+                
+                <h3 style="margin-top: 20px;">
+                    s2 Coefficients (512 elements):
+                    <button class="copy-btn" onclick="copyToClipboard('s2Python')">📋 Copy</button>
+                </h3>
+                <div class="output" id="s2Python"></div>
+            </div>
+            
+            <!-- Hash-to-Point -->
+            <div class="section" id="hashSection" style="display:none;">
+                <h2>6️⃣ Hash-to-Point (message → 512 coefficients)</h2>
+                
+                <h3>
+                    Python List:
+                    <button class="copy-btn" onclick="copyToClipboard('hashPython')">📋 Copy</button>
+                </h3>
+                <div class="output" id="hashPython"></div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { Falcon512 } from '../src/falcon.js';
+        import createFalconModule from '../dist/falcon.js';
+
+        let falcon;
+        
+        // Initialize Falcon-512
+        async function init() {
+            try {
+                document.getElementById('status').textContent = 'Initializing Falcon-512...';
+                
+                falcon = new Falcon512();
+                await falcon.init(createFalconModule);
+                
+                document.getElementById('status').className = 'status ready';
+                document.getElementById('status').textContent = '✅ Falcon-512 ready! Enter a seed and click Generate & Sign';
+                document.getElementById('generateBtn').disabled = false;
+                
+            } catch (error) {
+                document.getElementById('status').className = 'status error';
+                document.getElementById('status').textContent = '❌ Error: ' + error.message;
+                console.error(error);
+            }
+        }
+
+        // Convert string to seed bytes (SHA-256-like simple hash)
+        async function stringToSeed(str) {
+            const encoder = new TextEncoder();
+            const data = encoder.encode(str);
+            const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+            const hash = new Uint8Array(hashBuffer);
+            
+            // Extend to 48 bytes by repeating and truncating
+            const seed = new Uint8Array(48);
+            for (let i = 0; i < 48; i++) {
+                seed[i] = hash[i % 32];
+            }
+            return seed;
+        }
+
+        // Convert Uint8Array to base64
+        function toBase64(bytes) {
+            return btoa(String.fromCharCode(...bytes));
+        }
+        
+        // Convert array to Python format
+        function toPythonArray(array) {
+            return '[' + Array.from(array).join(', ') + ']';
+        }
+        
+        // Copy to clipboard
+        window.copyToClipboard = async function(elementId) {
+            const text = document.getElementById(elementId).textContent;
+            try {
+                await navigator.clipboard.writeText(text);
+                const btn = event.target;
+                const originalText = btn.textContent;
+                btn.textContent = '✅ Copied!';
+                setTimeout(() => {
+                    btn.textContent = originalText;
+                }, 2000);
+            } catch (err) {
+                alert('Failed to copy: ' + err);
+            }
+        };
+
+        // Display array in grid (removed - not used anymore)
+        // Visual grids removed per user request
+
+        // Generate everything
+        window.generateAll = async function() {
+            try {
+                document.getElementById('generateBtn').disabled = true;
+                document.getElementById('generateBtn').textContent = '⏳ Generating...';
+                
+                // Get inputs
+                const seedStr = document.getElementById('seedInput').value;
+                const message = new TextEncoder().encode(document.getElementById('messageInput').value);
+                
+                // Convert seed string to bytes
+                const seed = await stringToSeed(seedStr);
+                
+                // Generate keypair
+                console.time('Keypair Generation');
+                const keypair = falcon.createKeypairFromSeed(seed);
+                console.timeEnd('Keypair Generation');
+                
+                // Display keys in base64
+                document.getElementById('privkeyOutput').textContent = toBase64(keypair.privateKey);
+                document.getElementById('pubkeyOutput').textContent = toBase64(keypair.publicKey);
+                document.getElementById('keypairSection').style.display = 'block';
+                
+                // Extract and display public key coefficients
+                console.time('Extract Public Key Coefficients');
+                const pubkeyCoeffs = falcon.getPublicKeyCoefficients(keypair.publicKey);
+                console.timeEnd('Extract Public Key Coefficients');
+                document.getElementById('pubkeyCoeffsPython').textContent = toPythonArray(pubkeyCoeffs);
+                document.getElementById('pubkeyCoeffsSection').style.display = 'block';
+                
+                // Generate deterministic RNG seed for signing (all zeros for reproducibility)
+                const rngSeed = new Uint8Array(48);
+                // All zeros - deterministic signing
+                rngSeed.fill(0);
+                
+                // Display RNG seed
+                document.getElementById('rngSeedOutput').textContent = toBase64(rngSeed);
+                
+                // Sign message
+                console.time('Signing');
+                const signature = falcon.signMessage(message, keypair.privateKey, rngSeed);
+                console.timeEnd('Signing');
+                
+                // Verify signature
+                console.time('Verification');
+                const isValid = falcon.verifySignature(message, signature, keypair.publicKey);
+                console.timeEnd('Verification');
+                
+                // Display signature in base64
+                document.getElementById('signatureOutput').textContent = toBase64(signature);
+                document.getElementById('sigSize').textContent = signature.length + ' B';
+                document.getElementById('sigValid').textContent = isValid ? '✓' : '✗';
+                document.getElementById('sigValid').style.color = isValid ? '#4caf50' : '#f44336';
+                document.getElementById('signatureSection').style.display = 'block';
+                
+                // Extract and display signature coefficients
+                console.time('Extract Signature Coefficients');
+                const { s1, s2 } = falcon.getSignatureCoefficients(signature);
+                console.timeEnd('Extract Signature Coefficients');
+                document.getElementById('s1Python').textContent = toPythonArray(s1);
+                document.getElementById('s2Python').textContent = toPythonArray(s2);
+                document.getElementById('sigCoeffsSection').style.display = 'block';
+                
+                // Hash-to-point
+                console.time('Hash-to-Point');
+                const hashPoint = falcon.hashToPoint(message);
+                console.timeEnd('Hash-to-Point');
+                document.getElementById('hashPython').textContent = toPythonArray(hashPoint);
+                document.getElementById('hashSection').style.display = 'block';
+                
+                // Success
+                document.getElementById('status').className = 'status ready';
+                document.getElementById('status').textContent = '✅ Complete! All operations successful.';
+                
+                // Scroll to results
+                document.getElementById('keypairSection').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                
+            } catch (error) {
+                document.getElementById('status').className = 'status error';
+                document.getElementById('status').textContent = '❌ Error: ' + error.message;
+                console.error(error);
+            } finally {
+                document.getElementById('generateBtn').disabled = false;
+                document.getElementById('generateBtn').textContent = '🚀 Generate & Sign';
+            }
+        };
+
+        // Random seed
+        window.randomizeSeed = function() {
+            const randomWords = ['quantum', 'falcon', 'crypto', 'secure', 'lattice', 'nist', 'pqc', 'wasm'];
+            const random = randomWords[Math.floor(Math.random() * randomWords.length)];
+            document.getElementById('seedInput').value = random + '-' + Date.now() + '-' + Math.floor(Math.random() * 10000);
+        };
+
+        // Start initialization
+        init();
+    </script>
+</body>
+</html>
