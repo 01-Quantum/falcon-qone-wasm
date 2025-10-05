@@ -58,10 +58,10 @@ async function main() {
   // 7. Extract signature coefficients
   console.log('7. Extracting signature coefficients...');
   const sigCoeffs = falcon.getSignatureCoefficients(signature);
+  console.log(`   s0 coefficients: ${sigCoeffs.s0.length} elements`);
   console.log(`   s1 coefficients: ${sigCoeffs.s1.length} elements`);
-  console.log(`   s2 coefficients: ${sigCoeffs.s2.length} elements`);
-  console.log(`   First 5 s1: [${sigCoeffs.s1.slice(0, 5).join(', ')}]`);
-  console.log(`   First 5 s2: [${sigCoeffs.s2.slice(0, 5).join(', ')}]\n`);
+  console.log(`   First 5 s0: [${sigCoeffs.s0.slice(0, 5).join(', ')}]`);
+  console.log(`   First 5 s1: [${sigCoeffs.s1.slice(0, 5).join(', ')}]\n`);
 
   // 8. Demonstrate deterministic key generation
   console.log('8. Testing deterministic key generation...');

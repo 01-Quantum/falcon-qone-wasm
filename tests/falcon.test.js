@@ -271,32 +271,32 @@ describe('Falcon512', () => {
       signature = falcon.signMessage(message, keypair.privateKey, rngSeed);
     });
 
-    it('should extract s1 and s2 coefficients from signature', () => {
-      const { s1, s2 } = falcon.getSignatureCoefficients(signature);
-
+    it('should extract s0 and s1 coefficients from signature', () => {
+      const { s0, s1 } = falcon.getSignatureCoefficients(signature);
+      
+      expect(s0).toBeInstanceOf(Int16Array);
       expect(s1).toBeInstanceOf(Int16Array);
-      expect(s2).toBeInstanceOf(Int16Array);
+      expect(s0.length).toBe(512);
       expect(s1.length).toBe(512);
-      expect(s2.length).toBe(512);
     });
 
     it('should produce deterministic coefficients', () => {
       const result1 = falcon.getSignatureCoefficients(signature);
       const result2 = falcon.getSignatureCoefficients(signature);
 
+      expect(result1.s0).toEqual(result2.s0);
       expect(result1.s1).toEqual(result2.s1);
-      expect(result1.s2).toEqual(result2.s2);
     });
 
     it('should produce coefficients within valid range', () => {
-      const { s1, s2 } = falcon.getSignatureCoefficients(signature);
+      const { s0, s1 } = falcon.getSignatureCoefficients(signature);
 
       // Check that coefficients are reasonable 16-bit values
       for (let i = 0; i < 512; i++) {
+        expect(s0[i]).toBeGreaterThanOrEqual(-32768);
+        expect(s0[i]).toBeLessThanOrEqual(32767);
         expect(s1[i]).toBeGreaterThanOrEqual(-32768);
         expect(s1[i]).toBeLessThanOrEqual(32767);
-        expect(s2[i]).toBeGreaterThanOrEqual(-32768);
-        expect(s2[i]).toBeLessThanOrEqual(32767);
       }
     });
   });
@@ -323,8 +323,8 @@ describe('Falcon512', () => {
 
       // 5. Extract signature coefficients
       const sigCoeffs = falcon.getSignatureCoefficients(signature);
+      expect(sigCoeffs.s0.length).toBe(512);
       expect(sigCoeffs.s1.length).toBe(512);
-      expect(sigCoeffs.s2.length).toBe(512);
 
       // 6. Hash message to point
       const hashPoint = falcon.hashToPoint(message);

@@ -262,23 +262,23 @@ int falcon512_get_pubkey_coefficients(
 
 /**
  * Extract the signature coefficients from a Falcon-512 signature.
- * The signature consists of s2 (explicitly encoded) and s1 (computed from s2).
+ * The signature consists of s1 (explicitly encoded) and s0 (computed from s1).
  * 
  * @param signature Pointer to encoded signature
  * @param signature_len Length of signature
+ * @param s0_out Pointer to buffer for s0 coefficients: 512 int16_t (1024 bytes)
  * @param s1_out Pointer to buffer for s1 coefficients: 512 int16_t (1024 bytes)
- * @param s2_out Pointer to buffer for s2 coefficients: 512 int16_t (1024 bytes)
  * @return 0 on success, negative error code on failure
  */
 WASM_EXPORT
 int falcon512_get_signature_coefficients(
     const uint8_t* signature,
     size_t signature_len,
-    int16_t* s1_out,
-    int16_t* s2_out
+    int16_t* s0_out,
+    int16_t* s1_out
 ) {
     uint16_t hm[FALCON512_N];
-    int16_t s2[FALCON512_N];
+    int16_t s1[FALCON512_N];
     size_t decoded_len;
     inner_shake256_context sc;
     
@@ -299,8 +299,8 @@ int falcon512_get_signature_coefficients(
     // Extract nonce (40 bytes after header)
     const uint8_t* nonce = signature + 1;
     
-    // Decode compressed s2 values (after header and nonce)
-    decoded_len = Zf(comp_decode)(s2, FALCON512_LOGN, signature + 41, signature_len - 41);
+    // Decode compressed s1 values (after header and nonce)
+    decoded_len = Zf(comp_decode)(s1, FALCON512_LOGN, signature + 41, signature_len - 41);
     
     if (decoded_len == 0) {
         return FALCON_ERR_FORMAT;
@@ -312,12 +312,12 @@ int falcon512_get_signature_coefficients(
     inner_shake256_flip(&sc);
     Zf(hash_to_point_vartime)(&sc, hm, FALCON512_LOGN);
     
-    // Compute s1 = hm - s2 (in the polynomial ring)
+    // Compute s0 = hm - s1 (in the polynomial ring)
     // Note: This is a simplified version. The actual computation may need
     // to handle modular reduction properly.
     for (int i = 0; i < FALCON512_N; i++) {
-        s1_out[i] = (int16_t)hm[i] - s2[i];
-        s2_out[i] = s2[i];
+        s0_out[i] = (int16_t)hm[i] - s1[i];
+        s1_out[i] = s1[i];
     }
     
     return 0;

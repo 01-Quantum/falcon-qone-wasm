@@ -331,19 +331,19 @@
             
             <!-- Signature Coefficients -->
             <div class="section" id="sigCoeffsSection" style="display:none;">
-                <h2>5️⃣ Signature Coefficients (s1 and s2)</h2>
+                <h2>5️⃣ Signature Coefficients (s0 and s1)</h2>
                 
                 <h3>
+                    s0 Coefficients (512 elements):
+                    <button class="copy-btn" onclick="copyToClipboard('s0Python', this)">📋 Copy</button>
+                </h3>
+                <div class="output" id="s0Python"></div>
+                
+                <h3 style="margin-top: 20px;">
                     s1 Coefficients (512 elements):
                     <button class="copy-btn" onclick="copyToClipboard('s1Python', this)">📋 Copy</button>
                 </h3>
                 <div class="output" id="s1Python"></div>
-                
-                <h3 style="margin-top: 20px;">
-                    s2 Coefficients (512 elements):
-                    <button class="copy-btn" onclick="copyToClipboard('s2Python', this)">📋 Copy</button>
-                </h3>
-                <div class="output" id="s2Python"></div>
             </div>
             
             <!-- Hash-to-Point -->
@@ -351,7 +351,7 @@
                 <h2>6️⃣ Hash-to-Point for Verification (nonce + message → 512 coefficients)</h2>
                 
                 <p style="color: #666; margin-bottom: 15px;">
-                    <strong>Note:</strong> This is the challenge point <code>c</code> that verification checks against: <code>s1 + s2*h ≡ c (mod q)</code>
+                    <strong>Note:</strong> This is the challenge point <code>c</code> that verification checks against: <code>s0 + s1*h ≡ c (mod q)</code>
                 </p>
                 
                 <h3>
@@ -398,13 +398,36 @@
         async function stringToSeed(str) {
             const encoder = new TextEncoder();
             const data = encoder.encode(str);
-            const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-            const hash = new Uint8Array(hashBuffer);
             
-            // Extend to 48 bytes by repeating and truncating
+            // Try to use Web Crypto API if available (requires HTTPS or localhost)
+            if (crypto && crypto.subtle) {
+                try {
+                    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+                    const hash = new Uint8Array(hashBuffer);
+                    
+                    // Extend to 48 bytes by repeating and truncating
+                    const seed = new Uint8Array(48);
+                    for (let i = 0; i < 48; i++) {
+                        seed[i] = hash[i % 32];
+                    }
+                    return seed;
+                } catch (e) {
+                    console.warn('Web Crypto API not available, using fallback hash');
+                }
+            }
+            
+            // Fallback: Simple hash function for file:// protocol
             const seed = new Uint8Array(48);
+            let hash = 0;
+            for (let i = 0; i < data.length; i++) {
+                hash = ((hash << 5) - hash) + data[i];
+                hash = hash & hash; // Convert to 32-bit integer
+            }
+            
+            // Generate pseudo-random seed from hash
             for (let i = 0; i < 48; i++) {
-                seed[i] = hash[i % 32];
+                hash = (hash * 1664525 + 1013904223) & 0xFFFFFFFF; // LCG
+                seed[i] = (hash >>> 24) & 0xFF;
             }
             return seed;
         }
@@ -494,10 +517,10 @@
                 
                 // Extract and display signature coefficients
                 console.time('Extract Signature Coefficients');
-                const { s1, s2 } = falcon.getSignatureCoefficients(signature);
+                const { s0, s1 } = falcon.getSignatureCoefficients(signature);
                 console.timeEnd('Extract Signature Coefficients');
+                document.getElementById('s0Python').textContent = toPythonArray(s0);
                 document.getElementById('s1Python').textContent = toPythonArray(s1);
-                document.getElementById('s2Python').textContent = toPythonArray(s2);
                 document.getElementById('sigCoeffsSection').style.display = 'block';
                 
                 // Extract nonce from signature (bytes 1-40)

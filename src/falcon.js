@@ -298,15 +298,15 @@ export class Falcon512 {
    * Extract coefficients from a Falcon-512 signature
    * 
    * @param {Uint8Array} signature - Encoded signature
-   * @returns {{s1: Int16Array, s2: Int16Array}} Object with s1 and s2 coefficient arrays (512 elements each)
+   * @returns {{s0: Int16Array, s1: Int16Array}} Object with s0 and s1 coefficient arrays (512 elements each)
    */
   getSignatureCoefficients(signature) {
     const module = this.ensureInitialized();
     
     // Allocate memory
     const signaturePtr = module._wasm_malloc(signature.length);
+    const s0Ptr = module._wasm_malloc(FALCON512_N * 2); // 512 int16_t
     const s1Ptr = module._wasm_malloc(FALCON512_N * 2); // 512 int16_t
-    const s2Ptr = module._wasm_malloc(FALCON512_N * 2); // 512 int16_t
     
     try {
       // Copy signature to WASM memory
@@ -315,7 +315,7 @@ export class Falcon512 {
       // Extract coefficients
       const result = module._falcon512_get_signature_coefficients(
         signaturePtr, signature.length,
-        s1Ptr, s2Ptr
+        s0Ptr, s1Ptr
       );
       
       if (result !== 0) {
@@ -323,22 +323,22 @@ export class Falcon512 {
       }
       
       // Copy results back
+      const s0 = new Int16Array(FALCON512_N);
       const s1 = new Int16Array(FALCON512_N);
-      const s2 = new Int16Array(FALCON512_N);
       
+      const s0View = new Int16Array(module.HEAP16.buffer, s0Ptr, FALCON512_N);
       const s1View = new Int16Array(module.HEAP16.buffer, s1Ptr, FALCON512_N);
-      const s2View = new Int16Array(module.HEAP16.buffer, s2Ptr, FALCON512_N);
       
+      s0.set(s0View);
       s1.set(s1View);
-      s2.set(s2View);
       
-      return { s1, s2 };
+      return { s0, s1 };
       
     } finally {
       // Clean up
       module._wasm_free(signaturePtr);
+      module._wasm_free(s0Ptr);
       module._wasm_free(s1Ptr);
-      module._wasm_free(s2Ptr);
     }
   }
 
