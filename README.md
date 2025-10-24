@@ -1,4 +1,4 @@
-# Falcon-512 WebAssembly
+# 01 Quantum: Falcon-512 WebAssembly Implementation
 
 WebAssembly implementation of **Falcon-512** post-quantum signature scheme with clean JavaScript API.
 
