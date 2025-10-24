@@ -2,6 +2,21 @@
 
 WebAssembly implementation of **Falcon-512** post-quantum signature scheme with clean JavaScript API.
 
+
+## Interactive Demo
+
+🎮 **Try it now!** Experience Falcon-512 in action with our interactive web demo:
+
+👉 **[https://01-quantum.github.io/falcon-qone-wasm/](https://01-quantum.github.io/falcon-qone-wasm/)**
+
+The demo allows you to:
+- Generate keypairs from custom seeds
+- Sign messages and view signatures
+- Explore all polynomial coefficients
+- Verify signatures in real-time
+- Copy data in Python-ready format
+
+
 ## Features
 
 - ✅ Falcon-512 post-quantum signatures (NIST PQC finalist)
