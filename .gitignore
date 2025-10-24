@@ -2,14 +2,7 @@
 node_modules/
 
 # Build outputs
-dist/
-*.o
-*.a
-*.so
-*.dylib
-*.dll
-*.wasm
-*.js.mem
+dist
 
 # Test coverage
 coverage/
@@ -41,3 +34,4 @@ temp/
 .env
 .env.local
 .env.*.local
+*.a

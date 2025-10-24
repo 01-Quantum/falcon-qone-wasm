@@ -13,7 +13,7 @@
         
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: #001a33;
             min-height: 100vh;
             padding: 20px;
         }
@@ -28,10 +28,54 @@
         }
         
         .header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: #001a33;
             color: white;
             padding: 30px;
             text-align: center;
+        }
+        
+        .header .branding {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .header .logo {
+            height: 40px;
+            width: auto;
+        }
+        
+        .header .company-info {
+            font-size: 0.95em;
+            line-height: 1.4;
+        }
+        
+        .header .company-name {
+            font-weight: 600;
+            display: inline;
+        }
+        
+        .header .separator {
+            display: inline;
+            margin: 0 8px;
+        }
+        
+        .header .company-tagline {
+            display: inline;
+            opacity: 0.95;
+        }
+        
+        .header .company-tagline a {
+            color: white;
+            text-decoration: none;
+            border-bottom: 1px dotted rgba(255,255,255,0.5);
+        }
+        
+        .header .company-tagline a:hover {
+            border-bottom: 1px solid white;
         }
         
         .header h1 {
@@ -53,11 +97,11 @@
             padding: 20px;
             background: #f8f9fa;
             border-radius: 10px;
-            border-left: 4px solid #667eea;
+            border-left: 4px solid #1E5BA8;
         }
         
         .section h2 {
-            color: #667eea;
+            color: #1E5BA8;
             margin-bottom: 15px;
             font-size: 1.5em;
         }
@@ -85,7 +129,7 @@
         
         input[type="text"]:focus, textarea:focus {
             outline: none;
-            border-color: #667eea;
+            border-color: #1E5BA8;
         }
         
         textarea {
@@ -94,7 +138,7 @@
         }
         
         button {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: #1E5BA8;
             color: white;
             border: none;
             padding: 15px 30px;
@@ -102,14 +146,15 @@
             font-size: 16px;
             font-weight: 600;
             cursor: pointer;
-            transition: transform 0.2s, box-shadow 0.2s;
+            transition: transform 0.2s, box-shadow 0.2s, background 0.2s;
             margin-right: 10px;
             margin-bottom: 10px;
         }
         
         button:hover {
             transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+            box-shadow: 0 5px 15px rgba(30, 91, 168, 0.4);
+            background: #2666B8;
         }
         
         button:active {
@@ -223,13 +268,21 @@
         .stat-value {
             font-size: 24px;
             font-weight: bold;
-            color: #667eea;
+            color: #1E5BA8;
         }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
+            <div class="branding">
+                <img src="01com.png" alt="01com Logo" class="logo">
+                <div class="company-info">
+                    <span class="company-name">01 Quantum</span>
+                    <span class="separator">|</span>
+                    <span class="company-tagline">Post-Quantum Cyber Security | Quantum-Safe Email Security | <a href="https://www.01com.com/" target="_blank">www.01com.com</a></span>
+                </div>
+            </div>
             <h1>🔐 Falcon-512 Interactive Demo</h1>
             <p>Explore post-quantum signatures with full coefficient visibility</p>
         </div>
@@ -370,8 +423,8 @@
     </div>
 
     <script type="module">
-        import { Falcon512 } from '../src/falcon.js';
-        import createFalconModule from '../dist/falcon.js';
+        import { Falcon512 } from './falcon.js';
+        import createFalconModule from './falcon_w.js';
 
         let falcon;
         
