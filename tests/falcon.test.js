@@ -301,6 +301,139 @@ describe('Falcon512', () => {
     });
   });
 
+  describe('Poly-level Sign and Verify', () => {
+    let keypair;
+
+    beforeAll(() => {
+      const seed = new Uint8Array(48);
+      for (let i = 0; i < 48; i++) seed[i] = i;
+      keypair = falcon.createKeypairFromSeed(seed);
+    });
+
+    it('should sign a pre-hashed polynomial and return sv of length 512', () => {
+      const hm = falcon.hashToPoint(new Uint8Array([1, 2, 3, 4, 5]));
+      const sv = falcon.signPoly(hm, keypair.privateKey);
+
+      expect(sv).toBeInstanceOf(Int16Array);
+      expect(sv.length).toBe(512);
+    });
+
+    it('should verify a polynomial signature produced by signPoly', () => {
+      const hm = falcon.hashToPoint(new Uint8Array([9, 8, 7, 6]));
+      const sv = falcon.signPoly(hm, keypair.privateKey);
+
+      expect(falcon.verifyPoly(hm, sv, keypair.publicKey)).toBe(true);
+    });
+
+    it('should be deterministic for a given (hm, privateKey) pair', () => {
+      const hm = falcon.hashToPoint(new Uint8Array([42, 42, 42]));
+      const sv1 = falcon.signPoly(hm, keypair.privateKey);
+      const sv2 = falcon.signPoly(hm, keypair.privateKey);
+
+      expect(sv1).toEqual(sv2);
+    });
+
+    it('should reject a polynomial signature for a different hm', () => {
+      const hm1 = falcon.hashToPoint(new Uint8Array([1, 1, 1]));
+      const hm2 = falcon.hashToPoint(new Uint8Array([2, 2, 2]));
+      const sv = falcon.signPoly(hm1, keypair.privateKey);
+
+      expect(falcon.verifyPoly(hm2, sv, keypair.publicKey)).toBe(false);
+    });
+
+    it('should reject a polynomial signature with a corrupted sv', () => {
+      const hm = falcon.hashToPoint(new Uint8Array([3, 3, 3]));
+      const sv = falcon.signPoly(hm, keypair.privateKey);
+      sv[0] ^= 0x0001;
+
+      expect(falcon.verifyPoly(hm, sv, keypair.publicKey)).toBe(false);
+    });
+
+    it('should reject a polynomial signature under a different public key', () => {
+      const hm = falcon.hashToPoint(new Uint8Array([5, 5, 5]));
+      const sv = falcon.signPoly(hm, keypair.privateKey);
+
+      const otherSeed = new Uint8Array(48);
+      for (let i = 0; i < 48; i++) otherSeed[i] = 255 - i;
+      const otherKp = falcon.createKeypairFromSeed(otherSeed);
+
+      expect(falcon.verifyPoly(hm, sv, otherKp.publicKey)).toBe(false);
+    });
+  });
+
+  describe('Custom hash-to-point → signPoly / verifyPoly', () => {
+    let keypair;
+
+    beforeAll(() => {
+      const seed = new Uint8Array(48);
+      for (let i = 0; i < 48; i++) seed[i] = i;
+      keypair = falcon.createKeypairFromSeed(seed);
+    });
+
+    it('should sign and verify a polynomial derived from hashToPoint', () => {
+      const data = new TextEncoder().encode('custom payload to hash');
+
+      // 1. caller-side hash-to-point
+      const hm = falcon.hashToPoint(data);
+      expect(hm).toBeInstanceOf(Int16Array);
+      expect(hm.length).toBe(512);
+
+      // coefficients live in [0, q-1]
+      for (let i = 0; i < hm.length; i++) {
+        expect(hm[i]).toBeGreaterThanOrEqual(0);
+        expect(hm[i]).toBeLessThan(12289);
+      }
+
+      // 2. sign the polynomial directly
+      const sv = falcon.signPoly(hm, keypair.privateKey);
+      expect(sv).toBeInstanceOf(Int16Array);
+      expect(sv.length).toBe(512);
+
+      // 3. verify with the same polynomial
+      expect(falcon.verifyPoly(hm, sv, keypair.publicKey)).toBe(true);
+    });
+
+    it('should reject when verify is called with a different hashToPoint', () => {
+      const hm1 = falcon.hashToPoint(new TextEncoder().encode('message-A'));
+      const hm2 = falcon.hashToPoint(new TextEncoder().encode('message-B'));
+
+      const sv = falcon.signPoly(hm1, keypair.privateKey);
+
+      expect(falcon.verifyPoly(hm1, sv, keypair.publicKey)).toBe(true);
+      expect(falcon.verifyPoly(hm2, sv, keypair.publicKey)).toBe(false);
+    });
+
+    it('should work with a fully custom (non-SHAKE) polynomial', () => {
+      // any coefficients in [0, q-1] are a valid "hashed point" input
+      const hm = new Int16Array(512);
+      for (let i = 0; i < 512; i++) hm[i] = (i * 37 + 7) % 12289;
+
+      const sv = falcon.signPoly(hm, keypair.privateKey);
+      expect(falcon.verifyPoly(hm, sv, keypair.publicKey)).toBe(true);
+
+      // A ±1 perturbation may still be inside Falcon's acceptance norm bound
+      // (β² ≈ 34034726 for n=512). Replace hm with a completely unrelated
+      // polynomial to guarantee the signature no longer verifies.
+      const hmOther = new Int16Array(512);
+      for (let i = 0; i < 512; i++) hmOther[i] = (i * 53 + 101) % 12289;
+      expect(falcon.verifyPoly(hmOther, sv, keypair.publicKey)).toBe(false);
+    });
+
+    it('should be deterministic across equal hashToPoint inputs', () => {
+      const data = new Uint8Array([0xde, 0xad, 0xbe, 0xef]);
+      const hmA = falcon.hashToPoint(data);
+      const hmB = falcon.hashToPoint(data);
+      expect(hmA).toEqual(hmB);
+
+      const svA = falcon.signPoly(hmA, keypair.privateKey);
+      const svB = falcon.signPoly(hmB, keypair.privateKey);
+      expect(svA).toEqual(svB);
+
+      expect(falcon.verifyPoly(hmA, svA, keypair.publicKey)).toBe(true);
+      expect(falcon.verifyPoly(hmB, svB, keypair.publicKey)).toBe(true);
+    });
+  });
+
   describe('Integration Tests', () => {
     it('should perform complete sign-verify-extract workflow', () => {
       // 1. Generate keypair
