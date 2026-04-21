@@ -180,6 +180,135 @@ int falcon512_verify(
 }
 
 // ============================================================================
+// POLY-LEVEL SIGN / VERIFY
+// (operate directly on a caller-supplied hash-to-point polynomial)
+// ============================================================================
+
+/**
+ * Sign a pre-computed hash-to-point polynomial with a Falcon-512 private key.
+ *
+ * The caller is expected to have already run hash_to_point (e.g. via
+ * falcon512_hash_to_point) and supplies the 512 coefficients of hm directly.
+ * This function returns the raw signature polynomial s2 (also called sv), i.e.
+ * the same polynomial that falcon_verify internally recovers from a compressed
+ * Falcon signature. It does NOT produce a nonce or an encoded signature blob.
+ *
+ * Gaussian-sampling randomness is derived deterministically from the bytes of
+ * hm itself, so for a fixed (hm, privkey) pair this function is deterministic
+ * and needs no external RNG seed.
+ *
+ * Coefficients of hm must be in [0, q-1] with q = 12289.
+ *
+ * @param hm Pointer to 512 uint16_t coefficients of the hashed point
+ * @param privkey Pointer to encoded Falcon-512 private key (1281 bytes)
+ * @param sv_out Pointer to buffer for 512 int16_t coefficients of s2 (1024 bytes)
+ * @return 0 on success, negative error code on failure
+ */
+WASM_EXPORT
+int falcon512_sign_poly(
+    const uint16_t* hm,
+    const uint8_t* privkey,
+    int16_t* sv_out
+) {
+    shake256_context rng;
+    uint64_t tmp_aligned[(FALCON512_TMPSIZE_SIGNDYN + 7) / 8];
+    uint8_t *tmp = (uint8_t *)tmp_aligned;
+    int8_t f[FALCON512_N];
+    int8_t g[FALCON512_N];
+    int8_t F[FALCON512_N];
+    int8_t G[FALCON512_N];
+    uint16_t hm_local[FALCON512_N];
+    size_t u, v;
+    unsigned oldcw;
+
+    if (privkey[0] != (0x50 + FALCON512_LOGN)) {
+        return FALCON_ERR_FORMAT;
+    }
+
+    u = 1;
+    v = Zf(trim_i8_decode)(f, FALCON512_LOGN, Zf(max_fg_bits)[FALCON512_LOGN],
+        privkey + u, FALCON512_PRIVKEY_SIZE - u);
+    if (v == 0) return FALCON_ERR_FORMAT;
+    u += v;
+    v = Zf(trim_i8_decode)(g, FALCON512_LOGN, Zf(max_fg_bits)[FALCON512_LOGN],
+        privkey + u, FALCON512_PRIVKEY_SIZE - u);
+    if (v == 0) return FALCON_ERR_FORMAT;
+    u += v;
+    v = Zf(trim_i8_decode)(F, FALCON512_LOGN, Zf(max_FG_bits)[FALCON512_LOGN],
+        privkey + u, FALCON512_PRIVKEY_SIZE - u);
+    if (v == 0) return FALCON_ERR_FORMAT;
+    u += v;
+    if (u != FALCON512_PRIVKEY_SIZE) return FALCON_ERR_FORMAT;
+
+    if (!Zf(complete_private)(G, f, g, F, FALCON512_LOGN, tmp)) {
+        return FALCON_ERR_FORMAT;
+    }
+
+    memcpy(hm_local, hm, sizeof hm_local);
+
+    inner_shake256_init((inner_shake256_context *)&rng);
+    inner_shake256_inject((inner_shake256_context *)&rng,
+        (const uint8_t *)hm_local, sizeof hm_local);
+
+    oldcw = set_fpu_cw(2);
+    Zf(sign_dyn)(sv_out, (inner_shake256_context *)&rng,
+        f, g, F, G, hm_local, FALCON512_LOGN, tmp);
+    set_fpu_cw(oldcw);
+
+    memset(tmp_aligned, 0, sizeof tmp_aligned);
+    memset(f, 0, sizeof f);
+    memset(g, 0, sizeof g);
+    memset(F, 0, sizeof F);
+    memset(G, 0, sizeof G);
+    memset(hm_local, 0, sizeof hm_local);
+    memset(&rng, 0, sizeof rng);
+
+    return 0;
+}
+
+/**
+ * Verify a Falcon-512 signature polynomial against a caller-supplied
+ * hash-to-point polynomial.
+ *
+ * The caller provides the hashed point hm (e.g. from falcon512_hash_to_point)
+ * and the signature polynomial sv (s2). No nonce, no message, no encoded
+ * signature blob is involved.
+ *
+ * @param hm Pointer to 512 uint16_t coefficients of the hashed point
+ * @param sv Pointer to 512 int16_t coefficients of the signature polynomial
+ * @param pubkey Pointer to encoded Falcon-512 public key (897 bytes)
+ * @return 0 if the signature is valid, negative error code otherwise
+ */
+WASM_EXPORT
+int falcon512_verify_poly(
+    const uint16_t* hm,
+    const int16_t* sv,
+    const uint8_t* pubkey
+) {
+    uint16_t h[FALCON512_N];
+    uint16_t tmp_aligned[(FALCON512_TMPSIZE_VERIFY + 1) / 2];
+    uint8_t *tmp = (uint8_t *)tmp_aligned;
+    size_t decoded_len;
+
+    if (pubkey[0] != (0x00 + FALCON512_LOGN)) {
+        return FALCON_ERR_FORMAT;
+    }
+
+    decoded_len = Zf(modq_decode)(h, FALCON512_LOGN,
+        pubkey + 1, FALCON512_PUBKEY_SIZE - 1);
+    if (decoded_len != FALCON512_PUBKEY_SIZE - 1) {
+        return FALCON_ERR_FORMAT;
+    }
+
+    Zf(to_ntt_monty)(h, FALCON512_LOGN);
+
+    if (!Zf(verify_raw)(hm, sv, h, FALCON512_LOGN, tmp)) {
+        return FALCON_ERR_BADSIG;
+    }
+    return 0;
+}
+
+// ============================================================================
 // HASH-TO-POINT
 // ============================================================================
 
