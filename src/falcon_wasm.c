@@ -193,9 +193,10 @@ int falcon512_verify(
  * the same polynomial that falcon_verify internally recovers from a compressed
  * Falcon signature. It does NOT produce a nonce or an encoded signature blob.
  *
- * Gaussian-sampling randomness is derived deterministically from the bytes of
- * hm itself, so for a fixed (hm, privkey) pair this function is deterministic
- * and needs no external RNG seed.
+ * Gaussian-sampling randomness is deterministic for a fixed (hm, privkey) pair.
+ * The seed is SHAKE256(domain || encoded private key || hm), finalized before
+ * it is read, so the coins depend on the private key and cannot be replayed
+ * from hm alone.
  *
  * Coefficients of hm must be in [0, q-1] with q = 12289.
  *
@@ -204,6 +205,37 @@ int falcon512_verify(
  * @param sv_out Pointer to buffer for 512 int16_t coefficients of s2 (1024 bytes)
  * @return 0 on success, negative error code on failure
  */
+
+/*
+ * Domain separator for the deterministic sampler. It is absorbed first so this
+ * stream cannot collide with keygen or any other SHAKE256 use of the same key.
+ */
+static const uint8_t FALCON512_SIGN_POLY_DOMAIN[] = "qvault/falcon/sign-poly/det/v1";
+
+static void falcon512_init_sign_poly_rng(
+    inner_shake256_context *rng,
+    const uint8_t *privkey,
+    const uint16_t *hm)
+{
+    uint8_t hm_le[FALCON512_N * 2];
+    size_t i;
+
+    for (i = 0; i < FALCON512_N; i++) {
+        uint16_t coefficient = hm[i];
+        hm_le[i * 2] = (uint8_t)(coefficient & 0xff);
+        hm_le[i * 2 + 1] = (uint8_t)(coefficient >> 8);
+    }
+
+    inner_shake256_init(rng);
+    inner_shake256_inject(rng, FALCON512_SIGN_POLY_DOMAIN,
+        sizeof(FALCON512_SIGN_POLY_DOMAIN) - 1);
+    inner_shake256_inject(rng, privkey, FALCON512_PRIVKEY_SIZE);
+    inner_shake256_inject(rng, hm_le, sizeof hm_le);
+    inner_shake256_flip(rng);
+
+    memset(hm_le, 0, sizeof hm_le);
+}
+
 WASM_EXPORT
 int falcon512_sign_poly(
     const uint16_t* hm,
@@ -245,10 +277,7 @@ int falcon512_sign_poly(
     }
 
     memcpy(hm_local, hm, sizeof hm_local);
-
-    inner_shake256_init((inner_shake256_context *)&rng);
-    inner_shake256_inject((inner_shake256_context *)&rng,
-        (const uint8_t *)hm_local, sizeof hm_local);
+    falcon512_init_sign_poly_rng((inner_shake256_context *)&rng, privkey, hm_local);
 
     oldcw = set_fpu_cw(2);
     Zf(sign_dyn)(sv_out, (inner_shake256_context *)&rng,
@@ -263,6 +292,28 @@ int falcon512_sign_poly(
     memset(hm_local, 0, sizeof hm_local);
     memset(&rng, 0, sizeof rng);
 
+    return 0;
+}
+
+/**
+ * First 56 bytes of the sampler seed for (hm, privkey). Same derivation as
+ * falcon512_sign_poly. Two keys and one hm must not share this stream.
+ */
+WASM_EXPORT
+int falcon512_sign_poly_sampler_seed(
+    const uint16_t *hm,
+    const uint8_t *privkey,
+    uint8_t *seed_out)
+{
+    inner_shake256_context rng;
+
+    if (privkey[0] != (0x50 + FALCON512_LOGN)) {
+        return FALCON_ERR_FORMAT;
+    }
+
+    falcon512_init_sign_poly_rng(&rng, privkey, hm);
+    inner_shake256_extract(&rng, seed_out, 56);
+    memset(&rng, 0, sizeof rng);
     return 0;
 }
 
