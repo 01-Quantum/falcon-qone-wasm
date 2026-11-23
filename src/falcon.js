@@ -213,10 +213,10 @@ export class Falcon512 {
    * Sign a pre-computed hash-to-point polynomial with a Falcon-512 private key.
    *
    * The caller must have already computed hm (e.g. via {@link hashToPoint}) and
-   * supplies the 512 coefficients directly. Gaussian-sampling randomness is
-   * derived deterministically from the bytes of hm itself, so no separate RNG
-   * seed is required — the result is deterministic for a given
-   * (hm, privateKey) pair. The returned value is the raw signature polynomial
+   * supplies the 512 coefficients directly. Gaussian-sampling randomness is a
+   * finalized SHAKE256 of a domain tag, the private key, and hm, so the result
+   * is deterministic for a given (hm, privateKey) pair and two keys do not
+   * share a random stream. The returned value is the raw signature polynomial
    * s2 (512 coefficients), NOT an encoded Falcon signature blob. Pair it with
    * {@link verifyPoly}.
    *
@@ -264,6 +264,46 @@ export class Falcon512 {
       module._wasm_free(hmPtr);
       module._wasm_free(privkeyPtr);
       module._wasm_free(svPtr);
+    }
+  }
+
+  /**
+   * First 56 bytes of the deterministic sampler seed for (hm, privateKey).
+   * Same derivation as {@link signPoly}.
+   *
+   * @param {Int16Array|Uint16Array} hm
+   * @param {Uint8Array} privateKey
+   * @returns {Uint8Array}
+   */
+  signPolySamplerSeed(hm, privateKey) {
+    const module = this.ensureInitialized();
+
+    if (hm.length !== FALCON512_N) {
+      throw new Error(`Invalid hm size: expected ${FALCON512_N}, got ${hm.length}`);
+    }
+    if (privateKey.length !== FALCON512_PRIVKEY_SIZE) {
+      throw new Error(`Invalid private key size: expected ${FALCON512_PRIVKEY_SIZE}, got ${privateKey.length}`);
+    }
+
+    const hmBytes = new Uint8Array(hm.buffer, hm.byteOffset, FALCON512_N * 2);
+    const hmPtr = module._wasm_malloc(FALCON512_N * 2);
+    const privkeyPtr = module._wasm_malloc(privateKey.length);
+    const seedPtr = module._wasm_malloc(56);
+
+    try {
+      module.HEAPU8.set(hmBytes, hmPtr);
+      module.HEAPU8.set(privateKey, privkeyPtr);
+
+      const result = module._falcon512_sign_poly_sampler_seed(hmPtr, privkeyPtr, seedPtr);
+      if (result !== 0) {
+        throw new Error(`signPolySamplerSeed failed with error code: ${result}`);
+      }
+
+      return new Uint8Array(module.HEAPU8.subarray(seedPtr, seedPtr + 56));
+    } finally {
+      module._wasm_free(hmPtr);
+      module._wasm_free(privkeyPtr);
+      module._wasm_free(seedPtr);
     }
   }
 

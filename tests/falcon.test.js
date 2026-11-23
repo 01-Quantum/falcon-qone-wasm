@@ -333,6 +333,39 @@ describe('Falcon512', () => {
       expect(sv1).toEqual(sv2);
     });
 
+    it('should match the known sampler seed and signature for the fixed test key', () => {
+      const hm = falcon.hashToPoint(new Uint8Array([42, 42, 42]));
+      const stream = Buffer.from(falcon.signPolySamplerSeed(hm, keypair.privateKey)).toString('hex');
+      const sv = Buffer.from(falcon.signPoly(hm, keypair.privateKey).buffer).toString('hex');
+
+      expect(stream).toBe(
+        'd02b0ac1214009fa9da1398efa1ee7c5f79ef9ea2d9492a15e5063b911fe9dbe4c19d1238aaa9606b13761eef50338ab3c96a2bdd88f535b',
+      );
+      expect(sv).toBe(
+        '76ff67007d00deff4201d1002501bffe280013000cff4d00f500feffa4ff7500b300d7fee1ff5f00be00b7ff1900beff91ffca003900eeffa9fe6e00ccff7e00dafff0ff3eff9d00e8ff84ff7cff0300a1ff61ff1f0054003e001100eb00f90036ffb8ff9efff4ff54fff9ff73ffc2ff22000c0088ff64ffb8ff4fff72008700e8ffdcfd91ff2100ad00190097ff0e005f0070008f003fffe3ff58018e008effea00b8ffd4ff7bfe5dfe30003a000300cdff8bfff0fff3ff970147005f000fffba00f8ff0900e2ff3100d1fff1ffb6ffa1ffe10012ff670001019aff5f011f01ce003101f1fff7ff1e008fff720182000b00afff96004aff79006400ce001cff08ffb1ff4cff990032ff88007fffc9ffa900ebffa2fffaff4000f7fe3a00e5ff27009aff7100f5feadff7b015100b9005fffc3ff55ffe4fff7ff2000c5ffa9ffbb00040063ff05ff09007b00f9ff290192ff9fffacff4d01a701d7ff9e002800dbff8f01870077ff1c0052ff27ffebff3500aafffeffc0ff1e00e8002f000d002a001e0005007900cbfeceff17ff6aff40ff4200c0ff62ff490096010c005e0055001900ce0044006d009cffcbff49002a018100a1ffe1ff34002400c7ff9fff8700c8ff2900920098ff3e0093ffb9ffadffdcfe4f0061ff0dff2000190196ffd6ffabff88fed7ffb9ffe3ffccff05ff38ffa701acff1b006d01720074ffd4ffbbffaeff12003aff39ff43016b00da00e8ff0c006500b200b7ffddff340000015f00d6004900ad0028ff6dfff5ff7fffefffb700bbff920058ff27004cffe200c90021018cff3e001601caffd1001a0025001a00470120005eff09ff31010c01eeff3800bb00050088001f00b600a7ff0800a1ff9b0053ffc9ff79ff2aff130125ffb1002200410051ff05003d0046005c007301d9fe76ff5601330015ff26002200d2ffa7004c0033ffecfe7fffc1ff96ffe200bbffc000b60096fe9d002b003dff51000400360036fff4fffafebefeefffdf006e004e00b5001101b0ff7fff01008eff0d0041007f00d6ff1aff23ffdcff9800b9ff6dff2b01f4ff800092ff19fff4ff04006900d6ff5f008eff5bff37006aff82ffcbffcf00a8005801b3feb90078ff47018bff75fedf0071fe1f00a5ff85ff540092ffaeffbfff12007b00bdfffc00770050ff4cff86ff6cff2b0073ff3dff96ff870042ff7c0165014c00daff9cff2500c200ca001bff1f00a6ffcbffdbfffdff66ff6cffaeffa3009b003d000b0059ffecff9dff4e0034010700d7ff2d0062009d002d00f6fe3c00e0003701fdff6600af005cffeafff9004c00f2ffa6007dff34ff53ffaeff8500ccff3c0075ff63ff76006100bcffceff94ff72ffc3fff5ff7f0044ffe0008800240041ffa8ff4aff7cff32005b001900ee0044ff0bff6efeaf005cff0900e0ffb4ff',
+      );
+    });
+
+    it('should use a different sampler stream for a second key on the same hm', () => {
+      const hm = falcon.hashToPoint(new Uint8Array([42, 42, 42]));
+      const otherSeed = new Uint8Array(48);
+      for (let i = 0; i < 48; i++) otherSeed[i] = 255 - i;
+      const otherKp = falcon.createKeypairFromSeed(otherSeed);
+
+      const stream1 = falcon.signPolySamplerSeed(hm, keypair.privateKey);
+      const stream2 = falcon.signPolySamplerSeed(hm, otherKp.privateKey);
+      const stream1Again = falcon.signPolySamplerSeed(hm, keypair.privateKey);
+
+      expect(stream1).toEqual(stream1Again);
+      expect(stream1).not.toEqual(stream2);
+
+      const sv1 = falcon.signPoly(hm, keypair.privateKey);
+      const sv2 = falcon.signPoly(hm, otherKp.privateKey);
+      expect(sv1).not.toEqual(sv2);
+      expect(falcon.verifyPoly(hm, sv1, keypair.publicKey)).toBe(true);
+      expect(falcon.verifyPoly(hm, sv2, otherKp.publicKey)).toBe(true);
+    });
+
     it('should reject a polynomial signature for a different hm', () => {
       const hm1 = falcon.hashToPoint(new Uint8Array([1, 1, 1]));
       const hm2 = falcon.hashToPoint(new Uint8Array([2, 2, 2]));
